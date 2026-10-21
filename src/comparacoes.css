@@ -23,6 +23,11 @@
 .compare-metric-choices{padding:15px 20px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 .compare-metric-choices button{border:1.5px solid #174179;background:#faf5e8;color:#173e78;padding:10px 15px;font:800 11px 'IBM Plex Mono'}
 .compare-metric-choices button.active{background:#d34d3a;color:#fff8e8;border-color:#a5342b}
+.compare-effect-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 20px 12px;color:#173e78;font:700 10px 'IBM Plex Mono',monospace}
+.compare-effect-controls button{border:1px solid #173e78;background:#faf5e8;color:#173e78;padding:8px 11px;font:inherit}
+.compare-effect-controls button[aria-pressed="true"]{background:#173e78;color:#fff8e8}
+.compare-party-differences{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0;padding:11px;border-left:3px solid #c44838;background:#f4e6c9;color:#173e78;font:700 11px/1.5 'IBM Plex Mono',monospace}
+.compare-party-differences span{padding:4px 7px;border:1px solid #bda98a;background:#fff8e9}
 .compare-chart-shell{padding:15px 18px 22px;min-height:380px}
 .compare-graph-title{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#173e78;padding:6px 9px 22px;font:800 12px 'IBM Plex Mono'}
 .compare-graph-title small{font:700 9px 'IBM Plex Mono';color:#70644c;margin-left:auto}

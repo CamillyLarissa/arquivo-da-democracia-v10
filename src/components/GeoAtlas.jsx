@@ -1,11 +1,16 @@
-import {useEffect,useMemo,useState} from 'react';
+import {lazy,Suspense,useEffect,useMemo,useState} from 'react';
 import {geoMercator,geoPath,geoGraticule} from 'd3-geo';
 import {ArrowLeft,MapPin,RotateCcw} from 'lucide-react';
+import SceneBoundary from './SceneBoundary.jsx';
 import {COVERAGE,indicatorSettings,mapColor,prepareGeography,municipalityId} from '../atlas/geography.js';
 
 const cache=new Map();
-export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected}){
+const AtlasShader=lazy(()=>import('./AtlasShader.jsx'));
+function hasWebGL(){try{const canvas=document.createElement('canvas');return !!(canvas.getContext('webgl2')||canvas.getContext('webgl'))}catch{return false}}
+export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected,effects=false,reducedMotion=false}){
   const [loaded,setLoaded]=useState(null),[error,setError]=useState(false),[retry,setRetry]=useState(0),[hover,setHover]=useState(null);
+  const [webgl,setWebgl]=useState(false),[shaderFailed,setShaderFailed]=useState(false);
+  useEffect(()=>setWebgl(hasWebGL()),[]);
   const source=uf||'estados';
   useEffect(()=>{
     setHover(null);setError(false);
@@ -21,6 +26,7 @@ export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected
   const path=useMemo(()=>geo?geoPath(geoMercator().fitExtent([[38,24],[702,475]],geo)):null,[geo]);
   const grid=useMemo(()=>geoGraticule().extent([[-76,-35],[-33,7]]).step([5,5])(),[]);
   const lookup=useMemo(()=>new Map(municipios.map(m=>[String(m.id),m])),[municipios]);
+  const shaderEnabled=!!(effects&&webgl&&!shaderFailed&&uf&&geo&&path);
   const activeFeature=uf&&geo?.features.find(f=>municipalityId(f)===String(selected?.id));
   const activePoint=activeFeature&&path?.centroid(activeFeature);
   const stateName=cache.get('estados')?.features.find(f=>f.properties.uf===uf)?.properties.nome||uf;
@@ -29,6 +35,7 @@ export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected
     <div className="atlas-map-heading"><div><span>CADERNO DE TERRITÓRIOS / {uf||'BRASIL'}</span><h3>{uf?stateName:'UM PAÍS, SEIS RECORTES.'}</h3></div>{uf?<button onClick={()=>onUf('')}><ArrowLeft size={15}/> VER BRASIL</button>:<span className="atlas-map-edition">01 / 06 UFs</span>}</div>
     <p className="atlas-map-instruction">{uf?'Selecione um município para abrir sua ficha.':'Selecione um dos estados destacados para explorar seus municípios.'}</p>
     <div className="atlas-map-sheet" aria-busy={!geo&&!error}>
+      {shaderEnabled&&<SceneBoundary fallback={null} onError={()=>setShaderFailed(true)}><Suspense fallback={null}><AtlasShader geo={geo} path={path} lookup={lookup} indicator={indicator} reducedMotion={reducedMotion}/></Suspense></SceneBoundary>}
       {!geo?<div className="atlas-map-message" role="status"><MapPin size={32}/><p>{error?'Não foi possível abrir o mapa.':'Desdobrando o mapa…'}</p>{error&&<button onClick={()=>setRetry(n=>n+1)}><RotateCcw size={15}/> TENTAR NOVAMENTE</button>}</div>:<svg viewBox="0 0 740 510" className="atlas-geographic-map" role="group" aria-label={uf?`Mapa dos municípios de ${stateName}`:'Mapa do Brasil com os seis estados do acervo'}>
         <defs><filter id="atlas-map-texture"><feTurbulence baseFrequency="0.6" numOctaves="2" result="noise" seed="3"/><feColorMatrix type="saturate" values="0"/></filter><pattern id="atlas-outside" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="#e9dfcc"/><path d="M0 5L5 0" stroke="#d5c7b0" strokeWidth=".6"/></pattern></defs>
         {!uf&&<path d={path(grid)||''} className="atlas-graticule" fill="none"/>}
@@ -38,7 +45,7 @@ export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected
           const label=uf?`${p.nome} · ${formatValue(record?.[indicator])}`:`${p.nome}${covered?' · Explorar municípios':' · Fora do acervo'}`;
           const pick=()=>{if(uf)onSelect(record||{id,nome:p.nome,uf});else if(covered)onUf(p.uf)};
           return <path key={id} d={path(f)||''} className={`atlas-region ${covered?'is-interactive':''} ${active?'is-selected':''}`}
-            fill={uf?mapColor(record?.[indicator],indicator):covered?'#deb651':'url(#atlas-outside)'}
+            fill={uf?(shaderEnabled?'transparent':mapColor(record?.[indicator],indicator)):covered?'#deb651':'url(#atlas-outside)'}
             stroke={active?'#173e78':uf?'#fbf4e4':'#bba683'} strokeWidth={active?2.3:uf?.65:1}
             vectorEffect="non-scaling-stroke" role={covered?'button':undefined} tabIndex={covered?0:undefined}
             aria-label={label} aria-pressed={covered?!!active:undefined} onClick={covered?pick:undefined}
@@ -55,6 +62,7 @@ export default function GeoAtlas({uf,onUf,onSelect,municipios,indicator,selected
       <div className="atlas-map-readout" aria-live="polite"><MapPin size={14}/>{hover|| (selected&&uf?`${selected.nome} · ${formatValue(selected[indicator])}`:uf?'Explore os limites municipais':'6 estados · 1.236 municípios no acervo')}</div>
     </div>
     <div className="atlas-map-key">{uf?<><span><i style={{background:'#d5d2c9'}}/>Sem dados no recorte</span><span>{indicatorSettings[indicator].label}</span></>:<><span><i style={{background:'#deb651'}}/>Estados do acervo</span><span><i className="outside"/>Fora do acervo</span></>}</div>
+    {effects&&!webgl&&<p className="atlas-effect-note" role="status">WebGL indisponível: mapa padrão em SVG.</p>}
     <div className="atlas-map-source">Malha simplificada: <a href="https://servicodados.ibge.gov.br/api/docs/malhas?versao=3" target="_blank" rel="noreferrer">IBGE</a> · Limites geográficos não indicam disponibilidade de dados.</div>
   </div>;
 }

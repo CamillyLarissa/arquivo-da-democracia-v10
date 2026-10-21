@@ -1,0 +1,327 @@
+"""API read-only do MotherDuck para o Arquivo da Democracia.
+Nunca envie token ao navegador. O serviço expõe apenas consultas parametrizadas.
+"""
+from __future__ import annotations
+import os
+import re
+import threading
+from contextlib import contextmanager
+from datetime import date, datetime
+from decimal import Decimal
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+app = FastAPI(title="Arquivo da Democracia — API MotherDuck", version="1.0.0")
+from comparacoes import router as comparacoes_router
+app.include_router(comparacoes_router)
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET"], allow_headers=["*"])
+_lock = threading.RLock()
+_con = None
+# Alias de leitura. A URI precisa ser configurada localmente em server/.env.
+DB = 'v3'
+ALLOWED_UF = {'RS', 'MA', 'CE', 'RN', 'RJ', 'MS'}
+YEARS = set(range(2002, 2025, 2))
+
+
+def _open():
+    global _con
+    if _con is not None:
+        return _con
+    if not os.getenv('MOTHERDUCK_TOKEN'):
+        raise RuntimeError('MOTHERDUCK_TOKEN não configurado no servidor')
+    share = os.getenv('MOTHERDUCK_SHARE_URL', '')
+    if not share.startswith('md:_share/') or not re.fullmatch(r'md:_share/[\w-]+/[0-9a-fA-F-]{36}', share):
+        raise RuntimeError('MOTHERDUCK_SHARE_URL ausente ou inválida')
+    import duckdb
+    con = duckdb.connect('md:')
+    # O MotherDuck pode anexar automaticamente shares usados anteriormente.
+    attached = {name: path for _, name, path in con.execute('PRAGMA database_list').fetchall()}
+    if DB in attached:
+        if attached[DB] != share.removeprefix('md:'):
+            raise RuntimeError(f'Alias {DB} já aponta para outro banco')
+    else:
+        # URI lida SOMENTE do ambiente; formato validado estritamente acima.
+        con.execute(f"ATTACH '{share}' AS {DB} (READ_ONLY)")
+    _con = con
+    return con
+
+
+def _rows(sql, params=()):
+    with _lock:
+        con = _open()
+        cur = con.execute(sql, list(params))
+        cols = [x[0] for x in cur.description]
+        result = cur.fetchall()
+    def clean(v):
+        if isinstance(v, Decimal): return float(v)
+        if isinstance(v, (datetime, date)): return v.isoformat()
+        return v
+    return [dict(zip(cols, (clean(v) for v in row))) for row in result]
+
+
+def _year(value: int | None):
+    if value is not None and value not in YEARS:
+        raise HTTPException(400, 'Ano não permitido')
+    return value
+
+
+def _uf(value: str | None):
+    if value and value.upper() not in ALLOWED_UF:
+        raise HTTPException(400, 'UF fora da cobertura desta base')
+    return value.upper() if value else None
+
+
+@app.get('/api/health')
+def health():
+    try:
+        result = _rows(f'SELECT COUNT(*) n FROM {DB}.main.Municipio')
+        return {'mode':'live','connected':True,'database':'pipeline_bdr_der_completo_v3','municipalities':result[0]['n'],'coverage':'RS, MA, CE, RN, RJ, MS'}
+    except Exception as exc:
+        return JSONResponse({'mode':'snapshot','connected':False,'message':'Consulta detalhada temporariamente indisponível'}, status_code=503)
+
+
+@app.get('/api/overview')
+def overview():
+    tables = {'applications':'Candidatura','people':'Candidato','expenses':'Despesa_Candidatura','patrimony':'Patrimonio_Candidato','partyVotes':'Votos_Partido_Municipio','coverage':'Municipio'}
+    parts = [f"SELECT '{k}' field, COUNT(*) value FROM {DB}.main.{table}" for k,table in tables.items()]
+    rows = _rows(' UNION ALL '.join(parts))
+    return {'source':'live','values':{r['field']:r['value'] for r in rows},'states':6,'disclaimer':'Cobertura parcial de 6 UFs, não nacional.'}
+
+
+@app.get('/api/candidates')
+def candidates(search: str = Query('', min_length=0, max_length=80), ano:int=2024, uf:str|None=None,
+               partido:str=Query('',max_length=35),cargo:str=Query('',max_length=50),resultado:str=Query('',max_length=35),
+               limit:int=Query(12,ge=1,le=36),offset:int=Query(0,ge=0,le=1000000),ordem:str='votos'):
+    _year(ano);uf=_uf(uf)
+    # Whitelist de ordenação: nenhum identificador SQL é aceito diretamente da URL.
+    if resultado not in ('','ELEITO','NÃO ELEITO','SUPLENTE'):
+        raise HTTPException(400,'Resultado não reconhecido')
+    orders={'votos':'r.votos DESC NULLS LAST','gastos':'c.gastos_campanha_total DESC NULLS LAST','custo_voto':'c.gastos_campanha_total/NULLIF(r.votos,0) DESC NULLS LAST'}
+    if ordem not in orders: raise HTTPException(400, 'Ordenação desconhecida')
+    order=orders[ordem]
+    # Busca completa paginada; filtros como parâmetros preparados.
+    sql=f'''
+      SELECT c.id_candidatura id,c.nome_urna nome,c.numero_urna numero,p.sigla partido,
+       UPPER(e.cargo) cargo,e.ano,c.uf,m.nome municipio,c.escolaridade_candidatura escolaridade,
+       c.patrimonio patrimonio,c.gastos_campanha_total gastos,r.resultado resultado,r.votos votos,
+       COUNT(*) OVER() total_encontrado
+      FROM {DB}.main.Candidatura c
+      JOIN {DB}.main.Eleicao e ON c.id_eleicao=e.id_eleicao
+      LEFT JOIN {DB}.main.Partido p ON c.id_partido=p.id_partido
+      LEFT JOIN {DB}.main.Municipio m ON c.id_municipio=m.id_municipio
+      LEFT JOIN {DB}.main.Resultado_Candidatura r ON c.id_candidatura=r.id_candidatura
+      WHERE e.ano=? AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%'
+        AND (strip_accents(COALESCE(c.nome_urna,'')) ILIKE strip_accents(?) OR strip_accents(COALESCE(m.nome,'')) ILIKE strip_accents(?) OR strip_accents(COALESCE(p.sigla,'')) ILIKE strip_accents(?) OR CAST(c.numero_urna AS VARCHAR) ILIKE ?)
+        AND (? IS NULL OR c.uf=?)
+        AND (?='' OR UPPER(p.sigla)=UPPER(?))
+        AND (?='' OR UPPER(e.cargo)=UPPER(?))
+        AND (?='' OR (?='ELEITO' AND UPPER(COALESCE(r.resultado,'')) LIKE 'ELEITO%')
+             OR (?='NÃO ELEITO' AND UPPER(COALESCE(r.resultado,'')) IN ('NÃO ELEITO','NAO ELEITO'))
+             OR (?='SUPLENTE' AND UPPER(COALESCE(r.resultado,''))='SUPLENTE'))
+      ORDER BY {order},c.nome_urna,c.id_candidatura
+      LIMIT ? OFFSET ?'''
+    params=[ano,*([f'%{search}%']*4),uf,uf,partido,partido,cargo,cargo,resultado,resultado,resultado,resultado,limit,offset]
+    rows=_rows(sql,params)
+    return {'rows':[{k:v for k,v in row.items() if k!='total_encontrado'} for row in rows],
+            'total':rows[0]['total_encontrado'] if rows else 0,'limit':limit,'offset':offset}
+
+@app.get('/api/candidate-expenses/{candidate_id}')
+def candidate_expenses(candidate_id:str, categoria:str=Query('',max_length=300),
+                       limit:int=Query(40,ge=1,le=100),offset:int=Query(0,ge=0,le=1000000)):
+    """Livro de lançamentos da candidatura. Não são arquivos de notas fiscais."""
+    if not re.fullmatch(r'[0-9a-f]{32}',candidate_id):
+        raise HTTPException(400, 'Identificador inválido')
+    person=_rows(f'''SELECT c.id_candidatura id,c.nome_urna nome,c.numero_urna numero,
+       p.sigla partido,e.ano,UPPER(e.cargo) cargo,c.uf,m.nome municipio,
+       c.gastos_campanha_total gastos,r.votos,r.resultado
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Eleicao e USING (id_eleicao)
+       LEFT JOIN {DB}.main.Partido p USING (id_partido)
+       LEFT JOIN {DB}.main.Municipio m USING (id_municipio)
+       LEFT JOIN {DB}.main.Resultado_Candidatura r USING (id_candidatura)
+       WHERE c.id_candidatura=? LIMIT 1''',[candidate_id])
+    if not person: raise HTTPException(404, 'Candidatura não encontrada')
+    summary=_rows(f'''SELECT categoria, COUNT(*) quantidade, ROUND(SUM(valor),2) valor
+        FROM {DB}.main.Despesa_Candidatura WHERE id_candidatura=?
+        GROUP BY categoria ORDER BY valor DESC NULLS LAST LIMIT 24''',[candidate_id])
+    stats=_rows(f'''SELECT COUNT(*) quantidade,ROUND(SUM(valor),2) total
+        FROM {DB}.main.Despesa_Candidatura WHERE id_candidatura=?''',[candidate_id])
+    selected=_rows(f'''SELECT COUNT(*) quantidade FROM {DB}.main.Despesa_Candidatura
+        WHERE id_candidatura=? AND (?='' OR categoria=?)''',[candidate_id,categoria,categoria])
+    entries=_rows(f'''SELECT id_despesa id,categoria,ROUND(valor,2) valor
+        FROM {DB}.main.Despesa_Candidatura WHERE id_candidatura=? AND (?='' OR categoria=?)
+        ORDER BY valor DESC NULLS LAST,id_despesa LIMIT ? OFFSET ?''',[candidate_id,categoria,categoria,limit,offset])
+    return {'candidate':person[0], 'categories':summary, 'entries':entries,
+      'stats':stats[0], 'total_filtered':selected[0]['quantidade'], 'limit':limit,'offset':offset,
+      'document_type':'EXTRATO_VISUAL',
+      'disclaimer':'Documento visual produzido pelo portal com dados de Despesa_Candidatura. NÃO é nota fiscal, cupom fiscal nem comprovante oficial.'}
+
+
+@app.get('/api/municipios')
+def municipios(search:str=Query('',max_length=75),uf:str|None=None,limit:int=Query(35,ge=1,le=1500)):
+    uf=_uf(uf)
+    return _rows(f'''SELECT m.id_municipio id,m.nome,m.uf,m.regiao,
+      c.populacao,c.idhm,ROUND(c.pib/NULLIF(c.populacao,0),2) pib_per_capita,
+      ROUND(100*p.taxa_abstencao,2) abstencao_2024
+      FROM {DB}.main.Municipio m
+      LEFT JOIN {DB}.main.Censo_Municipio c ON c.id_municipio=m.id_municipio AND c.ano_referencia=2022
+      LEFT JOIN {DB}.main.Participacao_Eleitoral p ON p.id_municipio=m.id_municipio AND p.ano_participacao=2024
+      WHERE strip_accents(m.nome) ILIKE strip_accents(?) AND (? IS NULL OR m.uf=?)
+      ORDER BY m.nome LIMIT ?''',[f'%{search}%',uf,uf,limit])
+
+
+# Todos os templates SQL abaixo são fixos. Os filtros de ano nunca são interpolados na instrução SQL.
+QUERY = {
+  1:f'''SELECT e.ano,UPPER(e.cargo) cargo,COUNT(*) candidaturas,
+       COUNT(*) FILTER(WHERE UPPER(r.resultado) LIKE 'ELEITO%') eleitos,
+       ROUND(SUM(c.gastos_campanha_total),2) gasto_total,
+       ROUND(SUM(c.gastos_campanha_total)/NULLIF(COUNT(*) FILTER(WHERE UPPER(r.resultado) LIKE 'ELEITO%'),0),2) valor
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+       WHERE e.ano IN (2018,2020,2022,2024) AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%'
+       AND UPPER(e.cargo) IN ('VEREADOR','DEPUTADO ESTADUAL','DEPUTADO FEDERAL')
+       GROUP BY 1,2 ORDER BY 1,2''',
+  2:f'''WITH b AS (SELECT e.ano,UPPER(e.cargo) cargo,c.id_candidatura,c.patrimonio,
+       CASE WHEN UPPER(r.resultado) LIKE 'ELEITO%' THEN 1
+            WHEN UPPER(r.resultado) IN ('NÃO ELEITO','NAO ELEITO','SUPLENTE') THEN 0
+            ELSE NULL END eleito
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+       WHERE e.ano IN (2018,2020,2022,2024) AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%'
+       AND UPPER(e.cargo) IN ('VEREADOR','DEPUTADO ESTADUAL','DEPUTADO FEDERAL')
+       AND c.patrimonio IS NOT NULL AND c.patrimonio >= 0),
+       q AS(SELECT *,NTILE(4) OVER(PARTITION BY ano,cargo ORDER BY patrimonio,id_candidatura) quartil FROM b WHERE eleito IS NOT NULL)
+       SELECT ano,cargo,quartil,COUNT(*) candidaturas,ROUND(100*AVG(eleito),2) taxa,
+       ROUND(MEDIAN(patrimonio),2) mediana FROM q GROUP BY 1,2,3 ORDER BY 1,2,3''',
+  3:f'''WITH b AS (SELECT a.ano_participacao ano,m.uf,c.idhm,
+       c.pib/NULLIF(c.populacao,0) pib_pc, c.populacao,a.taxa_abstencao
+       FROM {DB}.main.Participacao_Eleitoral a
+       JOIN {DB}.main.Censo_Municipio c ON c.id_municipio=a.id_municipio AND c.ano_referencia=2022
+       JOIN {DB}.main.Municipio m ON m.id_municipio=a.id_municipio)
+       SELECT ano,uf,COUNT(*) municipios,ROUND(CORR(idhm,taxa_abstencao),4) r_idhm,
+       ROUND(CORR(pib_pc,taxa_abstencao),4) r_pib_pc,
+       ROUND(AVG(taxa_abstencao)*100,2) abstencao_media
+       FROM b GROUP BY 1,2 ORDER BY 1,2''',
+  4:f'''SELECT e.ano, UPPER(e.cargo) cargo,c.escolaridade_candidatura escolaridade,
+       COUNT(*) candidaturas,COUNT(*) FILTER(WHERE UPPER(r.resultado) LIKE 'ELEITO%') eleitos
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+       WHERE e.ano IN(2022,2024) AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%' AND UPPER(e.cargo) IN ('VEREADOR','DEPUTADO ESTADUAL','DEPUTADO FEDERAL')
+       GROUP BY 1,2,3 ORDER BY 1,2,4 DESC''',
+  5:f'''SELECT e.ano,UPPER(e.cargo) cargo,
+       SUM(v.votos_legenda) legenda,SUM(v.votos_nominais) nominal,
+       ROUND(100*SUM(v.votos_legenda)/NULLIF(SUM(v.votos_legenda+v.votos_nominais),0),2) pct_legenda
+       FROM {DB}.main.Votos_Partido_Municipio v JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       WHERE UPPER(e.cargo) IN ('VEREADOR','DEPUTADO ESTADUAL','DEPUTADO FEDERAL') AND v.turno=1 AND e.turno=1
+       GROUP BY 1,2 ORDER BY 1,2''',
+  6:f'''WITH x AS (SELECT e.ano,UPPER(e.cargo) cargo,
+       date_diff('year',p.dt_nascimento,e.data) - CASE WHEN strftime(e.data,'%m-%d') < strftime(p.dt_nascimento,'%m-%d') THEN 1 ELSE 0 END idade
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Candidato p USING(id_candidato)
+       JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       WHERE e.ano IN(2018,2020,2022,2024) AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%' AND UPPER(e.cargo) IN ('VEREADOR','DEPUTADO ESTADUAL'))
+       SELECT ano,cargo,COUNT(*) candidaturas,COUNT(*) FILTER(WHERE idade BETWEEN 18 AND 29) jovens,
+       COUNT(*) FILTER(WHERE idade IS NULL) sem_idade,
+       ROUND(100.0*COUNT(*) FILTER(WHERE idade BETWEEN 18 AND 29)/NULLIF(COUNT(*) FILTER(WHERE idade IS NOT NULL),0),2) pct_jovens
+       FROM x GROUP BY 1,2 ORDER BY 1,2''',
+  7:f'''WITH votos AS(SELECT e.ano,v.id_municipio,v.id_partido,SUM(v.votos_nominais+v.votos_legenda) total
+       FROM {DB}.main.Votos_Partido_Municipio v JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       WHERE e.ano IN(2020,2024) AND UPPER(e.cargo)='VEREADOR' AND v.turno=1 GROUP BY 1,2,3),
+       top AS(SELECT *,ROW_NUMBER() OVER(PARTITION BY ano,id_municipio ORDER BY total DESC,id_partido) rn FROM votos),
+       prev AS(SELECT id_municipio,id_partido FROM top WHERE ano=2020 AND rn=1),
+       curr AS(SELECT id_municipio,id_partido FROM top WHERE ano=2024 AND rn=1)
+       SELECT COUNT(*) municipios,COUNT(*) FILTER(WHERE prev.id_partido=curr.id_partido) estaveis,
+       ROUND(100.0*COUNT(*) FILTER(WHERE prev.id_partido=curr.id_partido)/NULLIF(COUNT(*),0),2) pct_estaveis
+       FROM prev JOIN curr USING(id_municipio)''',
+  9:f'''SELECT categoria,COUNT(*) registros,ROUND(SUM(valor),2) total
+       FROM {DB}.main.Despesa_Candidatura
+       WHERE categoria ILIKE '%SANTINH%' OR categoria ILIKE '%ADESIV%'
+       OR categoria ILIKE '%BANDEIRA%' OR categoria ILIKE '%IMPRESS%'
+       GROUP BY 1 ORDER BY total DESC LIMIT 24''',
+  10:f'''WITH s AS(SELECT c.id_candidato,COUNT(DISTINCT e.ano) n_anos,
+       COUNT(DISTINCT c.id_partido) n_partidos,
+       SUM(CASE WHEN UPPER(r.resultado) LIKE 'ELEITO%' THEN 1 ELSE 0 END) vitorias
+       FROM {DB}.main.Candidatura c JOIN {DB}.main.Eleicao e USING(id_eleicao)
+       JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+       WHERE e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%' GROUP BY 1)
+       SELECT COUNT(*) pessoas,COUNT(*) FILTER(WHERE n_anos>1) multi_anos,
+       COUNT(*) FILTER(WHERE n_anos>=3) tres_anos,
+       COUNT(*) FILTER(WHERE n_partidos>1) multi_partidos,
+       COUNT(*) FILTER(WHERE vitorias>=2) multi_vitorias FROM s'''
+}
+
+@app.get('/api/analysis/{question}')
+def analysis(question:int):
+    if question==8:
+        return {'question':8,'status':'indisponivel','rows':[],'message':'Não existe tabela de receitas eleitorais públicas/privadas no v3.'}
+    if question not in QUERY: raise HTTPException(404,'Investigação não encontrada')
+    return {'question':question,'status':'ok','rows':_rows(QUERY[question]),'database':'pipeline_bdr_der_completo_v3','mode':'live'}
+
+
+@app.get('/api/descobertas')
+def descobertas(ano: int=2024, cargo: str='VEREADOR', uf: str|None=None):
+    """Rankings comparáveis por cargo/ano; sem extrapolação nacional."""
+    _year(ano)
+    uf=_uf(uf)
+    offices={'VEREADOR','PREFEITO','DEPUTADO ESTADUAL','DEPUTADO FEDERAL','SENADOR','GOVERNADOR'}
+    cargo=cargo.upper().strip()
+    if cargo not in offices: raise HTTPException(400,'Cargo desconhecido')
+    lideres=_rows(f'''SELECT c.id_candidatura id,c.nome_urna nome,c.numero_urna numero,
+        p.sigla partido,c.uf,e.ano,UPPER(e.cargo) cargo,r.votos,
+        ROUND(c.gastos_campanha_total,2) gastos,r.resultado
+        FROM {DB}.main.Candidatura c
+        JOIN {DB}.main.Eleicao e USING(id_eleicao)
+        JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+        LEFT JOIN {DB}.main.Partido p USING(id_partido)
+        WHERE e.ano=? AND UPPER(e.cargo)=? AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%'
+        AND (? IS NULL OR c.uf=?) AND r.votos IS NOT NULL
+        ORDER BY r.votos DESC,c.id_candidatura LIMIT 12''',[ano,cargo,uf,uf])
+    # Sem criar ranking de 'melhores' municípios se ano solicitado não tiver participação correspondente.
+    alta,baixa,ufs=[],[],[]
+    if ano in (2022,2024):
+        base=f'''SELECT m.nome,m.uf,p.eleitorado_apto eleitorado,
+         ROUND(100*p.taxa_abstencao,2) percentual
+         FROM {DB}.main.Participacao_Eleitoral p JOIN {DB}.main.Municipio m USING(id_municipio)
+         WHERE p.ano_participacao=? AND p.eleitorado_apto>=10000 AND (? IS NULL OR m.uf=?)
+         ORDER BY p.taxa_abstencao {{order}},m.nome LIMIT 10'''
+        alta=_rows(base.format(order='DESC'),[ano,uf,uf]);baixa=_rows(base.format(order='ASC'),[ano,uf,uf])
+        ufs=_rows(f'''SELECT m.uf,COUNT(*) municipios,
+            ROUND(100.0*SUM(p.abstencoes)/NULLIF(SUM(p.eleitorado_apto),0),2) percentual
+            FROM {DB}.main.Participacao_Eleitoral p JOIN {DB}.main.Municipio m USING(id_municipio)
+            WHERE p.ano_participacao=? AND (? IS NULL OR m.uf=?) GROUP BY m.uf ORDER BY percentual DESC''',[ano,uf,uf])
+    return {'ano':ano,'cargo':cargo,'uf':uf,'leaders':lideres,'abstencaoAlta':alta,'abstencaoBaixa':baixa,
+            'porEstado':ufs,'limiar_eleitores':10000,'coverage':'CE, MA, MS, RJ, RN, RS',
+            'methodology':'Votos por candidatura e cargo, pleitos ordinários. Abstenção municipal com >= 10 mil eleitores aptos. Percentuais estaduais ponderados por eleitorado.'}
+
+@app.get('/api/adesivaria')
+def adesivaria(ano:int=0,uf:str|None=None,partido:str=Query('',max_length=35)):
+    """Campanhas publicitárias: agrupamentos conservadores por prefixo da categoria original."""
+    if ano and ano not in YEARS: raise HTTPException(400,'Ano não permitido')
+    uf=_uf(uf)
+    params=[ano,ano,uf,uf,partido,partido]
+    base=f'''WITH b AS (
+        SELECT CASE WHEN UPPER(TRIM(d.categoria)) LIKE 'SANTINH%' THEN 'Santinhos'
+                    WHEN UPPER(TRIM(d.categoria)) LIKE 'ADESIV%' THEN 'Adesivos'
+                    WHEN UPPER(TRIM(d.categoria)) LIKE 'BANDEIRA%' THEN 'Bandeiras' END tipo,
+               d.id_candidatura, d.categoria, d.valor,c.nome_urna,c.uf,pt.sigla partido,
+               c.numero_urna, c.gastos_campanha_total,r.votos,r.resultado,
+               e.ano,UPPER(e.cargo) cargo
+        FROM {DB}.main.Despesa_Candidatura d JOIN {DB}.main.Candidatura c USING(id_candidatura)
+        JOIN {DB}.main.Eleicao e USING(id_eleicao) LEFT JOIN {DB}.main.Partido pt USING(id_partido)
+        LEFT JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
+        WHERE (?=0 OR e.ano=?) AND (? IS NULL OR c.uf=?) AND (?='' OR UPPER(pt.sigla)=UPPER(?))
+    )'''
+    grupos=_rows(base+''' SELECT tipo, COUNT(*) registros,ROUND(SUM(valor),2) valor,COUNT(DISTINCT id_candidatura) candidaturas
+        FROM b WHERE tipo IS NOT NULL GROUP BY tipo ORDER BY valor DESC''',params)
+    categorias=_rows(base+''' SELECT tipo,categoria,COUNT(*) registros,ROUND(SUM(valor),2) valor
+        FROM b WHERE tipo IS NOT NULL GROUP BY tipo,categoria ORDER BY valor DESC LIMIT 18''',params)
+    candidatos=_rows(base+''' SELECT id_candidatura id,nome_urna nome,partido,uf,ano,cargo,
+        MAX(numero_urna) numero,MAX(gastos_campanha_total) gastos,MAX(votos) votos,MAX(resultado) resultado,
+        ROUND(SUM(valor),2) gastos_promo,COUNT(*) lancamentos
+        FROM b WHERE tipo IS NOT NULL GROUP BY 1,2,3,4,5,6 ORDER BY gastos_promo DESC LIMIT 12''',params)
+    return {'ano':ano,'uf':uf,'partido':partido,'groups':grupos,'categories':categorias,'candidates':candidatos,
+      'methodology':'Grupos por prefixo explícito na descrição da categoria (SANTINH-, ADESIV-, BANDEIRA-). Não representam todo o universo da propaganda, e a categorização exige revisão editorial.',
+      'document_type':'SINTESSE_DE_LANCAMENTOS'}
+
+@app.exception_handler(RuntimeError)
+def runtime_error(_,exc:RuntimeError):
+    return JSONResponse({'error':'MotherDuck indisponível','reason':str(exc)},status_code=503)

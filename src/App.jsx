@@ -12,10 +12,13 @@ import {
   ResponsiveContainer,PieChart,Pie,Cell,Legend,ReferenceLine
 } from 'recharts';
 import GeoAtlas from './components/GeoAtlas.jsx';
+import HomeEditorial from './pages/HomeEditorial.jsx';
+import AtlasDiscoveries from './components/AtlasDiscoveries.jsx';
+import {EditorialHeading,PrintLabel} from './components/Editorial.jsx';
+import useMotionPreference from './hooks/useMotionPreference.js';
 import {indicatorSettings as atlasIndicators,formatIndicator as formatAtlasIndicator} from './atlas/geography.js';
 import {loadAtlasMunicipios,atlasCoverage,filterAtlasRows} from './atlas/data.js';
 import Plenario3D,{plenarioAssentos} from './components/Plenario3D.jsx';
-import Televisao3D from './components/Televisao3D.jsx';
 import ComparisonPanel from './components/ComparisonPanel.jsx';
 import ArchivePart from './pages/ArchivePart.jsx';
 import Descobertas from './pages/Descobertas.jsx';
@@ -38,43 +41,10 @@ function Frame({children,className='',label='',right=''}){return <div className=
 function Stamp({children,tone='red'}){return <span className={'stamp stamp-'+tone}>{children}</span>}
 function Status({mode}){return <span className={'status status-'+(mode==='live'?'live':'snap')}><span/>{mode==='live'?'ACERVO ATUALIZADO':'ACERVO CONSULTÁVEL'}</span>}
 function SectionHero({kicker,title,detail,children}){return <div className="section-header"><div><Eyebrow>{kicker}</Eyebrow><h2>{title}</h2><p>{detail}</p></div>{children}</div>}
-function Intro({onGo,mode}){
- const [channel,setChannel]=useState(0);
- const channels=[{name:'Os municípios do acervo',value:'1.236',detail:'6 UFs · cobertura parcial',to: 'atlas'},
- {name:'Pessoas registradas',value:'382.866',detail:'Candidaturas e trajetórias',to:'arquivo'},
- {name:'Permanência partidária',value:'36,57%',detail:'2020 → 2024 · vereador',to:'investigacoes'},
- {name:'Despesas da disputa',value:'R$ 4,37 bi',detail:'Lançamentos disponíveis',to:'campanhas'}];
- const next=()=>setChannel(c=>(c+1)%channels.length);
- return <div className="home-grid"><div className="home-poster">
-   <Eyebrow>EDIÇÃO 01 · ELEIÇÕES BRASILEIRAS</Eyebrow>
-   <div className="hero-float-tag">UM PAÍS<br/>MUITOS VOTOS</div>
-   <h1>ARQUIVO <small>DA</small><br/><em>DEMOCRACIA</em></h1>
-   <p className="home-lead">Por trás de cada santinho há um nome. Por trás de cada voto, uma história. Explore os números de um Brasil em disputa.</p>
-   <div className="home-brush">OS DADOS SAEM DO PAPEL.</div>
-   <div className="home-actions"><button className="btn-red" onClick={()=>onGo('atlas')}>ABRIR O ATLAS <ArrowRight size={18}/></button><button className="btn-outline" onClick={()=>onGo('arquivo')}>PUXAR UMA FICHA <FolderOpen size={17}/></button></div>
-   <div className="crowd-motif" aria-hidden="true">{Array.from({length:36},(_,i)=><span key={i} style={{height:20+(i*31)%70}}/>)}</div>
-   <p className="hero-micro">ACERVO INDEPENDENTE • DADOS AUDITADOS • DESIGN EDITORIAL</p>
- </div><div className="tv-column"><div className="tv-head"><span>◉ TRANSMISSÃO EXPERIMENTAL</span><Status mode={mode}/></div>
-   <div className="tv-canvas"><Televisao3D channel={channels[channel]} onNext={next}/></div>
-   <div className="channel-info"><div><span className="micro">CANAL {String(channel+1).padStart(2,'0')} / 04</span><h3>{channels[channel].name}</h3><p>{channels[channel].detail}</p></div><button onClick={next} className="channel-next" aria-label="Trocar canal"><RotateCcw size={19}/></button></div>
-   <button className="tv-action" onClick={()=>onGo(channels[channel].to)}>INVESTIGAR ESTA TRANSMISSÃO <ArrowUpRight size={17}/></button>
- </div></div>;
-}
-function Home({onGo,mode,data}){
- const first=[['arquivo','ARQUIVO DE CANDIDATURAS','Puxe as fichas e compare perfis',FolderOpen],['atlas','ATLAS TERRITORIAL','Abra o mapa por estado e município',MapPin],['campanhas','CONTAS DE CAMPANHA','Abra envelopes e gastos eleitorais',Coins],['plenario','A SALA DO PODER','Entre no plenário 3D',Landmark]];
- return <><Intro onGo={onGo} mode={mode}/><div className="home-stats">
- {[[fNum(data.coverage),'MUNICÍPIOS'],[String(data.states),'UNIDADES FEDERATIVAS'],[fNum(data.applications),'CANDIDATURAS'],[fNum(data.people),'PESSOAS']].map(([v,t])=><div key={t}><strong>{v}</strong><span>{t}</span></div>)}
- </div><div className="notice-strip"><AlertTriangle size={17}/><p><strong>RECORTE REAL, NÃO NACIONAL:</strong> a base cobre municípios de RS, MA, CE, RN, RJ e MS. Os demais estados não estão representados neste levantamento.</p></div>
- <div className="home-chapters"><div className="chapter-intro"><Eyebrow>EXPLORE OS AMBIENTES</Eyebrow><h2>CADA DADO<br/><em>GUARDA UMA HISTÓRIA.</em></h2></div>{first.map(([id,t,desc,Icon],i)=><button className={'chapter chapter-'+i} key={id} onClick={()=>onGo(id)}><span className="chapter-index">0{i+1} / ACERVO</span><Icon size={35} strokeWidth={1.5}/><strong>{t}</strong><span>{desc}</span><ArrowUpRight className="chapter-arrow" size={22}/></button>)}</div>
- <Descobertas mode={mode} onGo={onGo} compact/><div className="home-investigate"><div><Eyebrow>LABORATÓRIO / PERGUNTAS & EVIDÊNCIAS</Eyebrow><h2>AS PERGUNTAS<br/><em>POR TRÁS DOS NÚMEROS.</em></h2><p>Dez investigações relacionadas aos temas do acervo, sem transformar o site em uma lista de exercícios.</p><button className="btn-red" onClick={()=>onGo('investigacoes')}>VER AS INVESTIGAÇÕES <ArrowRight size={16}/></button></div><div className="poster-collage"><div>QUANTO<br/>CUSTA UMA<br/><b>CADEIRA?</b></div><div>O VOTO<br/>É NA SIGLA?</div><div>QUEM<br/>FINANCIA?</div></div></div></>;
-}
-
 function Atlas({mode,onResearch}){
  const [uf,setUf]=useState(''),[text,setText]=useState(''),[liveData,setLiveData]=useState(null),[failedUf,setFailedUf]=useState(null),[requestVersion,setRequestVersion]=useState(0);
  const [indicator,setIndicator]=useState('abstencao_2024'),[order,setOrder]=useState('desc'),[selected,setSelected]=useState(null);
  const [visibleCount,setVisibleCount]=useState(60);
- const [mapEffects,setMapEffects]=useState(false),[reducedMotion,setReducedMotion]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
- useEffect(()=>{const query=window.matchMedia('(prefers-reduced-motion: reduce)');const update=()=>setReducedMotion(query.matches);query.addEventListener('change',update);return()=>query.removeEventListener('change',update)},[]);
  useEffect(()=>{
    if(mode!=='live')return;
    let active=true;setLiveData(null);setFailedUf(null);
@@ -89,12 +59,12 @@ function Atlas({mode,onResearch}){
  const coverage=atlasCoverage(atlasRows,indicator,uf);
  const fmt=m=>formatAtlasIndicator(m?.[indicator],indicator);
  const chooseUf=value=>{setUf(value);setSelected(null)};
- return <><div className="atlas-introduction"><SectionHero kicker="AMBIENTE 02 / CADERNO DE CARTOGRAFIA" title={<>DESDOBRE O <em>ATLAS.</em></>} detail="Um território, muitas leituras. Abra um estado, encontre um município e consulte os indicadores do acervo. A cor mede valores; as fichas guardam os números."/></div>
- <div className="atlas-indicator-strip"><span>COLORIR O MAPA POR</span>{Object.entries(atlasIndicators).map(([key,v])=><button key={key} className={indicator===key?'active':''} aria-pressed={indicator===key} onClick={()=>{setIndicator(key);setSelected(null)}}>{v.label}</button>)}</div>
+ return <section className="br-atlas br-scope"><EditorialHeading number="02" kicker="CADERNO TERRITORIAL" title={<>Um país.<br/><em>Muitos recortes.</em></>} aside={<PrintLabel tone="blue">CARTOGRAFIA · CE / MA / MS / RJ / RN / RS</PrintLabel>}><p>DESDOBRE O ATLAS. Selecione uma UF e leia o território município a município. As cores indicam valores; as fichas mostram os números exatos.</p></EditorialHeading>
+ <div className="atlas-indicator-strip"><span>ESCOLHA UMA LEITURA</span>{Object.entries(atlasIndicators).map(([key,v],index)=><button key={key} className={indicator===key?'active':''} aria-pressed={indicator===key} onClick={()=>{setIndicator(key);setSelected(null)}}><small>0{index+1}</small><span>{v.label}</span></button>)}</div>
  <div className="atlas-layout"><Frame label="ATLAS MUNICIPAL · INDICADORES" right="SEIS UNIDADES FEDERATIVAS">
  <div className="atlas-filter"><button className={!uf?'active':''} aria-pressed={!uf} onClick={()=>chooseUf('')}>BRASIL</button>{states.map(s=><button className={uf===s.uf?'active':''} aria-pressed={uf===s.uf} key={s.uf} onClick={()=>chooseUf(s.uf)}>{s.uf}</button>)}</div>
- <div className="atlas-visual-controls"><button type="button" aria-pressed={mapEffects} onClick={()=>setMapEffects(v=>!v)}>EFEITO DE COR {mapEffects?'LIGADO':'DESLIGADO'}</button><span>{atlasIndicators[indicator].context} · {uf||'6 UFs'}{reducedMotion?' · MOVIMENTO REDUZIDO':''}</span></div>
- <GeoAtlas uf={uf} onUf={chooseUf} onSelect={setSelected} municipios={atlasRows} indicator={indicator} selected={selected} effects={mapEffects} reducedMotion={reducedMotion} loading={loading}/>
+ <div className="atlas-reading-context"><span>INDICADOR EM LEITURA</span><p>{atlasIndicators[indicator].context} · {uf||'6 UFs'}</p></div>
+ <GeoAtlas uf={uf} onUf={chooseUf} onSelect={setSelected} municipios={atlasRows} indicator={indicator} selected={selected} loading={loading}/>
  </Frame>
  <Frame label="FICHÁRIO TERRITORIAL" right="COMPARE MUNICÍPIOS"><div className="municipality-panel">
  <div className="atlas-coverage" role="status" aria-live="polite"><span className="atlas-data-edition">{loading?'ABRINDO O ACERVO':liveReady?'CONSULTA AO ACERVO':'AMOSTRA OFFLINE · 21/10/2026'}</span><h3>{uf||'SEIS ESTADOS'} <small> / COBERTURA PARCIAL</small></h3>
@@ -104,9 +74,10 @@ function Atlas({mode,onResearch}){
  {selected&&<div className="atlas-selected"><span>FICHA SELECIONADA</span><h3>{selected.nome} · {selected.uf}</h3><div><b>{atlasIndicators[indicator].label}</b><strong>{fmt(selected)}</strong></div><p>População: {fNum(selected.populacao)} · Abstenção 2024: {selected.abstencao_2024==null?'—':fNum(selected.abstencao_2024)+'%'}</p></div>}
  {loading?<p className="data-unavailable">Abrindo fichas do território…</p>:<><div className="municipio-list atlas-scroll-list">{filtered.slice(0,visibleCount).map(m=><button className={selected?.id===m.id?'active':''} key={m.id} onClick={()=>{setSelected(m);setUf(m.uf)}}><span><strong>{m.nome}</strong><small>{m.uf}</small></span><b>{fmt(m)}</b></button>)}{!filtered.length&&<p>Nenhuma ficha encontrada no recorte atual.</p>}</div>{visibleCount<filtered.length&&<button type="button" className="atlas-more" onClick={()=>setVisibleCount(n=>n+60)}>MOSTRAR MAIS FICHAS · {Math.min(visibleCount,filtered.length)} DE {filtered.length}</button>}</>}
  <p className="atlas-count-note">A busca filtra somente o fichário e mantém os dados do mapa. O Atlas cobre CE, MA, MS, RJ, RN e RS; não representa todo o país.</p></div></Frame></div>
+ <AtlasDiscoveries rows={atlasRows} indicator={indicator} uf={uf} coverage={coverage} loading={loading} archived={!liveReady} onSelect={record=>{setSelected(record);setUf(record.uf)}}/>
  <div className="atlas-investigate"><div><strong>O QUE O TERRITÓRIO EXPLICA?</strong><p>Em 2022, a associação IDHM × abstenção foi negativa no conjunto analisado; em 2024, mudou de sinal. A composição estadual e os anos precisam ser analisados separadamente.</p></div><button onClick={()=>onResearch(3)}>DESDOBRAR ESTA INVESTIGAÇÃO <ArrowUpRight size={15}/></button><button onClick={()=>onResearch(7)}>VER A MUDANÇA NOS PARTIDOS <ArrowUpRight size={15}/></button></div>
- <ComparisonPanel topic="atlas" mode={mode} municipios={filtered}/>
- <p className="editorial-note">* IDHM do acervo tem valores referentes a 2010, mesmo quando consta numa linha de referência 2022. População/PIB e participação eleitoral podem ter anos de referência distintos; confira a metodologia na seção Investigações.</p></>;
+ <ComparisonPanel topic="atlas" mode={liveReady?'live':'snapshot'} municipios={filtered}/>
+ <p className="editorial-note">* IDHM do acervo tem valores referentes a 2010, mesmo quando consta numa linha de referência 2022. População/PIB e participação eleitoral podem ter anos de referência distintos; confira a metodologia na seção Investigações.</p></section>;
 }
 function Plenario({onResearch,mode}){
  const [focus,setFocus]=useState('todos'),[seat,setSeat]=useState(null),[replay,setReplay]=useState(0),[recorte,setRecorte]=useState(5);
@@ -167,13 +138,14 @@ function Footer(){return <footer><div><strong>ARQUIVO DA DEMOCRACIA</strong><spa
 export default function App(){
  const [page,setPage]=useState('inicio'),[mode,setMode]=useState('snapshot'),[counts,setCounts]=useState(overview),[investigation,setInvestigation]=useState(1),[mobileMenu,setMobileMenu]=useState(false),[campaignCandidate,setCampaignCandidate]=useState(null);
  const mainRef=useRef();
+ const reducedMotion=useMotionPreference();
  useEffect(()=>{getHealth().then(h=>{if(h.connected)setMode('live')});getOverview().then(o=>setCounts(o));},[]);
- useEffect(()=>{if(mainRef.current){gsap.fromTo(mainRef.current,{opacity:.4,y:15},{opacity:1,y:0,duration:.55,ease:'power2.out'})}window.scrollTo({top:0,behavior:'instant'});},[page]);
+ useEffect(()=>{const animation=mainRef.current&&!reducedMotion?gsap.fromTo(mainRef.current,{opacity:.4,y:15},{opacity:1,y:0,duration:.4,ease:'power2.out'}):null;window.scrollTo({top:0,behavior:'instant'});return()=>{animation?.progress(1);animation?.kill()}},[page,reducedMotion]);
  const go=(id)=>{setPage(id);setMobileMenu(false)};
  const goResearch=(n)=>{setInvestigation(n);go('investigacoes')};
  const openCampaign=(candidate)=>{setCampaignCandidate(candidate);go('campanhas')};
  return <div className="site"><header className="site-header"><button className="brand" onClick={()=>go('inicio')} aria-label="Arquivo da Democracia, início"><div className="brand-icon"><Archive size={25}/></div><div><strong>ARQUIVO <em>DA</em> DEMOCRACIA</strong><small>ATLAS · CAMPANHAS · REPRESENTAÇÃO</small></div></button><nav className={mobileMenu?'mobile-open':''} aria-label="Navegação principal">{navItems.map(([id,Icon])=><button key={id} onClick={()=>go(id)} className={id===page?'active':''}><Icon size={15}/>{pageNames[id]}</button>)}</nav><button className="menu-toggle" onClick={()=>setMobileMenu(v=>!v)} aria-label="Abrir menu"><Menu size={21}/></button></header>
  <div className="utility-ribbon"><span>◈ OBSERVATÓRIO ELEITORAL BRASILEIRO</span><span>RECORTE: RS · MA · CE · RN · RJ · MS</span><span><Status mode={mode}/></span></div>
- <main ref={mainRef} className="content-shell">{page==='inicio'&&<Home onGo={go} mode={mode} data={counts}/>} {page==='arquivo'&&<ArchivePart mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='atlas'&&<Atlas mode={mode} onResearch={goResearch}/>} {page==='partidos'&&<MuralCampanhas mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='campanhas'&&<PrestacaoDeContas mode={mode} onResearch={goResearch} initialCandidate={campaignCandidate}/>} {page==='adesivos'&&<Adesivaria mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='descobertas'&&<Descobertas mode={mode} onGo={go}/>} {page==='plenario'&&<Plenario onResearch={goResearch} mode={mode}/>} {page==='investigacoes'&&<Investigacoes defaultId={investigation} mode={mode} onGo={go}/>}</main>
+ <main ref={mainRef} className="content-shell">{page==='inicio'&&<HomeEditorial onGo={go} onResearch={goResearch} mode={mode} data={counts}/>} {page==='arquivo'&&<ArchivePart mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='atlas'&&<Atlas mode={mode} onResearch={goResearch}/>} {page==='partidos'&&<MuralCampanhas mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='campanhas'&&<PrestacaoDeContas mode={mode} onResearch={goResearch} initialCandidate={campaignCandidate}/>} {page==='adesivos'&&<Adesivaria mode={mode} onResearch={goResearch} onOpenCandidate={openCampaign}/>} {page==='descobertas'&&<Descobertas mode={mode} onGo={go}/>} {page==='plenario'&&<Plenario onResearch={goResearch} mode={mode}/>} {page==='investigacoes'&&<Investigacoes defaultId={investigation} mode={mode} onGo={go}/>}</main>
  <Footer/></div>;
 }

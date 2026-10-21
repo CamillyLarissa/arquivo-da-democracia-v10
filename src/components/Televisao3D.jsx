@@ -1,6 +1,6 @@
-import {useMemo,useRef} from 'react';
+import {useEffect,useMemo} from 'react';
 import * as THREE from 'three';
-import {Canvas,useFrame} from '@react-three/fiber';
+import {Canvas} from '@react-three/fiber';
 import {OrbitControls,ContactShadows,RoundedBox} from '@react-three/drei';
 import SceneBoundary from './SceneBoundary.jsx';
 
@@ -13,17 +13,22 @@ function ScreenTexture({channel,onNext}){
     for(let y=0;y<690;y+=7){c.fillStyle='rgba(255,255,255,.033)';c.fillRect(0,y,1024,2)}
     c.fillStyle='#e8bb46';c.fillRect(38,38,948,8);
     c.fillStyle='#f6edce';c.font='700 37px monospace';c.fillText('ARQUIVO / TV ELEITORAL',54,111);
-    c.fillStyle='#d9e8ef';c.font='700 52px sans-serif'; c.fillText(channel.name.toUpperCase().slice(0,23),54,260);
-    c.fillStyle='#f6e7bd';c.font='900 182px sans-serif';c.fillText(channel.value.slice(0,12),54,482);
-    c.fillStyle='#cbe6e9';c.font='30px monospace';c.fillText(channel.detail.slice(0,42),54,568);
+    const fitText=(text,size,weight,family,x,y)=>{
+      let fitted=size;c.font=`${weight} ${fitted}px ${family}`;
+      while(c.measureText(text).width>916&&fitted>12){fitted-=2;c.font=`${weight} ${fitted}px ${family}`}
+      c.fillText(text,x,y);
+    };
+    c.fillStyle='#d9e8ef';fitText(channel.name.toUpperCase(),52,700,'sans-serif',54,260);
+    c.fillStyle='#f6e7bd';fitText(String(channel.value),182,900,'sans-serif',54,482);
+    c.fillStyle='#cbe6e9';fitText(channel.detail,30,400,'monospace',54,568);
     c.fillStyle='#e8bb46';c.fillRect(54,609,850,7);
     const tex=new THREE.CanvasTexture(canvas); tex.colorSpace=THREE.SRGBColorSpace;return tex;
   },[channel]);
+  useEffect(()=>()=>texture.dispose(),[texture]);
   return <mesh position={[0,.28,1.02]} onClick={e=>{e.stopPropagation();onNext()}} onPointerOver={e=>{e.stopPropagation();document.body.style.cursor="pointer"}} onPointerOut={()=>{document.body.style.cursor=""}}><planeGeometry args={[3.88,2.65]}/><meshBasicMaterial map={texture} toneMapped={false}/></mesh>;
 }
 function Television({channel,onNext}){
- const group=useRef(); useFrame(({clock})=>{if(group.current)group.current.rotation.y=Math.sin(clock.elapsedTime*.28)*.042;});
- return <group ref={group} position={[0,.36,0]} rotation-y={-.13}>
+ return <group position={[0,.36,0]} rotation-y={-.13}>
    <RoundedBox args={[5.3,3.8,1.65]} radius={.28} smoothness={5} castShadow><meshStandardMaterial color='#856341' roughness={.73}/></RoundedBox>
    <RoundedBox args={[4.65,3.32,.16]} radius={.23} smoothness={3} position={[-.24,.28,.9]}><meshStandardMaterial color='#302924' roughness={.83}/></RoundedBox>
    <ScreenTexture channel={channel} onNext={onNext}/>
@@ -37,11 +42,11 @@ function Television({channel,onNext}){
  </group>;
 }
 export default function Televisao3D({channel,onNext}){
- return <SceneBoundary fallback={<button type="button" className="tv-fallback-v8" onClick={onNext} aria-label="Avançar canal da televisão"><span>ARQUIVO / TV ELEITORAL</span><b>{channel?.name}</b><strong>{channel?.value}</strong><small>{channel?.detail}</small><em>TOQUE NA TELA PARA MUDAR O CANAL ↗</em></button>}><Canvas dpr={[1,1.6]} shadows camera={{position:[6.5,4.6,8.8],fov:37}} gl={{alpha:true,antialias:true}}>
+ return <SceneBoundary fallback={<button type="button" className="tv-fallback-v8" onClick={onNext} aria-label="Avançar canal da televisão"><span>ARQUIVO / TV ELEITORAL</span><b>{channel?.name}</b><strong>{channel?.value}</strong><small>{channel?.detail}</small><em>TOQUE NA TELA PARA MUDAR O CANAL ↗</em></button>}><Canvas frameloop="demand" dpr={[1,1.6]} shadows camera={{position:[6.5,4.6,8.8],fov:37}} gl={{alpha:true,antialias:true}}>
    <ambientLight intensity={1.9}/><hemisphereLight args={['#fff0d2','#504030',1.1]}/><directionalLight position={[5,9,7]} intensity={2.9} castShadow/>
    <Television channel={channel} onNext={onNext}/>
    <mesh rotation-x={-Math.PI/2} position={[0,-1.98,0]} receiveShadow><planeGeometry args={[200,200]}/><meshStandardMaterial color='#dcccae' roughness={1}/></mesh>
-   <ContactShadows position={[0,-1.97,0]} scale={11} blur={2} opacity={.26}/>
+   <ContactShadows frames={1} position={[0,-1.97,0]} scale={11} blur={2} opacity={.26}/>
    <OrbitControls enablePan={false} minDistance={7} maxDistance={13} minPolarAngle={.7} maxPolarAngle={1.5} maxAzimuthAngle={.55} minAzimuthAngle={-.55} target={[0,.4,0]}/>
  </Canvas></SceneBoundary>;
 }

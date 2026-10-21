@@ -27,3 +27,10 @@ export function filterAtlasRows(rows,text,indicator,order){
     return (Number(x)-Number(y))*(order==='asc'?1:-1);
   });
 }
+
+export function territorialFindings(rows,indicator){
+  const values=rows.filter(row=>hasIndicatorValue(row[indicator]));
+  if(!values.length)return null;
+  const ordered=[...values].sort((a,b)=>Number(a[indicator])-Number(b[indicator])||String(a.id).localeCompare(String(b.id)));
+  return {minimum:ordered[0],maximum:ordered.at(-1),range:Number(ordered.at(-1)[indicator])-Number(ordered[0][indicator]),count:ordered.length};
+}

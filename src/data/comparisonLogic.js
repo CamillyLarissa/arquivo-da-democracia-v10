@@ -37,9 +37,10 @@ export function buildComparisonChart(kind,rows=[],metric='valor',expectedYears=n
    });
    return {type:'line',points,series,raw};
  }
+ const valueKey=['fichas','municipios'].includes(kind)?'valor':metric;
  const points=raw.map(r=>({
    rotulo:String(kind==='patrimonio'?('Quartil '+r.quartil):r.serie||'—'),
-   valor:r[metric]==null?null:Number(r[metric])
+   valor:r[valueKey]==null?null:Number(r[valueKey])
  })).filter(r=>r.rotulo);
  return {type:kind==='escolaridade'?'bar-horizontal':'bar',points,series:[],raw};
 }

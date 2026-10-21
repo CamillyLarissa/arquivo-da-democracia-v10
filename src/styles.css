@@ -100,53 +100,101 @@
 @media(prefers-reduced-motion:reduce){.archive-v6-led.in-motion{animation:none}.archive-v6-tabs button.active{transform:none}}
 
 /* Cartography follows the archive's printed-paper visual language. */
-.atlas-layout{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);align-items:start}
-.atlas-layout>.frame{min-width:0}
-.atlas-cartography{background:#f7edda;color:var(--navy);padding:22px 22px 12px}
+.atlas-introduction .section-header{margin-bottom:24px}
+.atlas-introduction h2 em{color:#176349}
+.atlas-introduction .eyebrow{color:#176349}
+.atlas-indicator-strip{background:#e5eddd;border:1px solid #93ab90;border-left:5px solid #176349;gap:8px;padding:14px}
+.atlas-indicator-strip>span{color:#23483e;font-size:11px}
+.atlas-indicator-strip button{background:#fcf7e9;border-color:#a5b49b;color:#19483d;font-size:11px;min-height:42px}
+.atlas-indicator-strip button.active{background:#176349;border-color:#176349;color:#fff7dc;box-shadow:inset 0 -3px #f3cc48}
+.atlas-layout{--atlas-green:#176349;--atlas-indigo:#173f72;--atlas-yellow:#f3cc48;grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);align-items:start;gap:22px}
+.atlas-layout>.frame{min-width:0;border:1px solid #809c8e;box-shadow:4px 5px 0 #b4b99b;background:#f9f2df}
+.atlas-layout .frame-caption{background:#176349;color:#fff5d6;border-bottom:4px solid #f3cc48;font-size:10px;letter-spacing:.04em}
+.atlas-layout .frame-caption span:last-child{color:#e8f2d4}
+.atlas-layout .atlas-filter{display:flex;flex-wrap:wrap;gap:6px;padding:14px 18px 0;background:#f9f2df}
+.atlas-layout .atlas-filter button{min-width:42px;min-height:42px;background:#f9f4e5;border:1px solid #90a897;color:#204a3f;font:700 12px 'IBM Plex Mono',monospace;padding:9px 12px}
+.atlas-layout .atlas-filter button.active{background:#f3cc48;border-color:#6d7f46;color:#183c32;box-shadow:inset 0 -2px #c49b2a}
+.atlas-cartography{background:#f9f2df;color:#173f72;padding:20px 20px 16px}
 .atlas-map-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.atlas-map-heading span{font:700 9px 'IBM Plex Mono',monospace;letter-spacing:.1em}
-.atlas-map-heading h3{font:900 clamp(26px,3vw,40px)/1 'Barlow Condensed',sans-serif;margin:8px 0;text-transform:uppercase}
-.atlas-map-heading button,.atlas-map-message button{display:flex;align-items:center;gap:6px;min-height:40px;background:#fff8e9;border:1px solid #b7a181;color:var(--navy);padding:8px 11px;font:700 10px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
-.atlas-map-edition{border:1px solid #b84c3a;color:#b84c3a;padding:9px;transform:rotate(4deg);white-space:nowrap}
-.atlas-map-instruction{font-size:12px;color:#6c6558;line-height:1.6;margin:7px 0 15px}
-.atlas-map-sheet{position:relative;border:1px solid #cabb9e;background-color:#f3e7cd;background-image:linear-gradient(#b7a38720 1px,transparent 1px),linear-gradient(90deg,#b7a38720 1px,transparent 1px);background-size:30px 30px;box-shadow:inset 0 0 50px #baa17626}
-.atlas-map-sheet:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 32.8%,#96806212 33.3%,#fff9 33.5%,transparent 34%,transparent 66%,#96806212 66.6%,#fff9 66.8%,transparent 67.2%)}
-.atlas-geographic-map{display:block;width:100%;height:auto;min-height:300px}
-.atlas-shader{position:absolute;top:0;left:0;width:100%;aspect-ratio:740 / 510;pointer-events:none;z-index:0}
+.atlas-map-heading span{font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.08em;color:#35604b}
+.atlas-map-heading h3{font:900 clamp(30px,3vw,43px)/1.02 'Barlow Condensed',sans-serif;margin:8px 0;text-transform:uppercase;letter-spacing:.015em}
+.atlas-map-heading button,.atlas-map-message button{display:flex;align-items:center;gap:6px;min-height:42px;background:#f6edcf;border:1px solid #8da38e;color:#1c4e3e;padding:8px 11px;font:700 11px 'IBM Plex Mono',monospace;cursor:pointer;white-space:nowrap}
+.atlas-map-heading .atlas-map-edition{border:2px solid #b13b2e;color:#a63028;padding:9px;transform:rotate(4deg);white-space:nowrap}
+.atlas-map-instruction{font-size:13px;color:#3e564f;line-height:1.6;margin:7px 0 16px}
+.atlas-map-sheet{position:relative;isolation:isolate;overflow:hidden;border:1px solid #819a8c;background:#dce9e7;box-shadow:0 2px 0 #bdc6ac}
+.atlas-map-viewport{position:relative;width:100%;aspect-ratio:740 / 510;overflow:hidden;background:radial-gradient(ellipse at 40% 40%,#edf3e6 0%,#dce9e5 65%,#b4caca 100%)}
+.atlas-map-viewport:before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(#5b614015 .6px,transparent .8px) 0 0 / 5px 5px;box-shadow:inset 0 0 24px #68643b26}
+.atlas-geographic-map{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;min-height:0;max-height:none;filter:none}
+.atlas-shader{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 .atlas-shader canvas{display:block;width:100%;height:100%}
-.atlas-geographic-map{position:relative;z-index:1}
-.atlas-map-readout{position:relative;z-index:2}
-.atlas-visual-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;color:#173e78;font:700 10px 'IBM Plex Mono',monospace}
-.atlas-visual-controls button{border:1px solid #173e78;background:#f8ecd1;color:#173e78;padding:8px 11px;font:inherit;cursor:pointer}
-.atlas-visual-controls button[aria-pressed="true"]{background:#173e78;color:#fff3d8}
-.atlas-effect-note{font:700 11px 'IBM Plex Mono',monospace;color:#71533e}
-.atlas-region{transition:fill .16s,stroke .16s;outline:none}
+.atlas-visual-controls{display:flex;align-items:center;gap:12px;padding:14px 18px 0;color:#3a574c;font:600 10px/1.6 'IBM Plex Mono',monospace}
+.atlas-visual-controls>span{flex:1;min-width:0}
+.atlas-visual-controls button{flex-shrink:0;border:1px solid #91a797;background:#f2e6c2;color:#194c3b;padding:9px 10px;min-height:42px;font:700 10px 'IBM Plex Mono',monospace;cursor:pointer}
+.atlas-visual-controls button[aria-pressed="true"]{background:#173f72;border-color:#173f72;color:#fff3d8}
+.atlas-effect-note{font:600 11px/1.6 'IBM Plex Mono',monospace;color:#375a4d;margin:14px 0 0}
+.atlas-region{transition:stroke .16s;outline:none;stroke-linejoin:round}
 .atlas-region.is-interactive{cursor:pointer}
-.atlas-region.is-interactive:hover,.atlas-region.is-interactive:focus-visible{fill:#b84b37;stroke:#173e78;stroke-width:2px}
-.atlas-region.is-selected{stroke:#173e78;stroke-width:2.5px}
+.atlas-region.is-interactive:hover,.atlas-region.is-interactive:focus-visible{stroke:#9f3027;stroke-width:2px}
+.atlas-region.is-selected{stroke:#b13b2e;stroke-width:2.5px}
 .atlas-state-label,.atlas-location-pin{pointer-events:none}
-.atlas-state-label rect{fill:#173e78;stroke:#f7edda;stroke-width:1}
-.atlas-state-label text{fill:#fff5dc;font:700 11px 'IBM Plex Mono',monospace}
-.atlas-compass{fill:#173e78;font:700 12px 'IBM Plex Mono',monospace}
-.atlas-ocean{fill:#9e967f;letter-spacing:3px;font:500 10px 'IBM Plex Mono',monospace}
-.atlas-location-pin circle:first-child{fill:#fff8df;stroke:#173e78;stroke-width:2}
-.atlas-location-pin circle:last-child{fill:#b84b37}
-.atlas-map-readout{position:relative;z-index:1;display:flex;align-items:center;gap:8px;min-height:42px;padding:10px 12px;background:#fff8e8d9;border-top:1px solid #cabb9e;font:600 10px/1.5 'IBM Plex Mono',monospace}
+.atlas-state-label rect{fill:#176349;stroke:#f3cc48;stroke-width:1.5}
+.atlas-state-label text{fill:#fff9df;font:700 12px 'IBM Plex Mono',monospace}
+.atlas-compass{fill:#173f72;font:700 13px 'IBM Plex Mono',monospace}
+.atlas-ocean{fill:#3e6a7a;letter-spacing:3px;font:500 12px 'IBM Plex Mono',monospace}
+.atlas-location-pin circle:first-child{fill:#fff8df;stroke:#173f72;stroke-width:2}
+.atlas-location-pin circle:last-child{fill:#b13b2e}
+.atlas-map-readout{position:relative;display:flex;align-items:center;gap:9px;min-height:52px;padding:12px;background:#f7f1db;border-top:1px solid #8fa293;color:#274c40;font:600 11px/1.6 'IBM Plex Mono',monospace}
 .atlas-map-readout svg{flex-shrink:0}
-.atlas-map-message{min-height:350px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px}
-.atlas-map-key{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:15px;font:600 10px 'IBM Plex Mono',monospace}
+.atlas-map-message{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:14px;padding:18px;text-align:center}
+.atlas-map-message p{margin:0}
+.atlas-map-key{display:flex;gap:12px 22px;flex-wrap:wrap;margin-top:17px;color:#294f41;font:600 11px/1.6 'IBM Plex Mono',monospace}
 .atlas-map-key span{display:flex;align-items:center;gap:7px}
-.atlas-map-key i{display:inline-block;width:13px;height:13px;border:1px solid #a99675}
-.atlas-map-key .outside{background:repeating-linear-gradient(135deg,#e9dfcc 0 3px,#d5c7b0 3px 4px)}
-.atlas-map-source{font:500 9px/1.6 'IBM Plex Mono',monospace;color:#746955;margin-top:13px;padding-top:10px;border-top:1px dashed #c6b491}
+.atlas-map-key p{flex-basis:100%;margin:0;color:#536459;font-size:10px}
+.atlas-map-key i{display:inline-block;width:18px;height:15px;border:1px solid #86967e}
+.atlas-map-key .outside{background:repeating-linear-gradient(135deg,#e8e4d5 0 3px,#c5c8b7 3px 4px)}
+.atlas-numeric-legend{margin-top:19px;padding:15px;background:#fdf8e9;border:1px solid #b5b99d;color:#253f43}
+.atlas-legend-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.atlas-legend-heading strong{font:700 12px 'IBM Plex Mono',monospace;color:#173f72}
+.atlas-legend-heading>span{font:600 9px 'IBM Plex Mono',monospace;color:#536458}
+.atlas-numeric-legend ul{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;list-style:none;padding:0;margin:0}
+.atlas-numeric-legend li{display:flex;flex-direction:column;gap:7px;font:600 10px/1.6 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.atlas-numeric-legend li i{display:block;width:100%;height:18px;border:1px solid #36576560}
+.atlas-numeric-legend p{display:flex;align-items:center;gap:8px;border-top:1px dashed #b9b99b;margin:13px 0 8px;padding-top:11px;font:600 11px/1.6 'DM Sans',sans-serif}
+.atlas-numeric-legend p i{width:18px;height:15px;flex-shrink:0;border:1px solid #818674}
+.atlas-numeric-legend>small{display:block;font:500 10px/1.6 'DM Sans',sans-serif;color:#566257}
+.atlas-map-source{font:500 10px/1.7 'IBM Plex Mono',monospace;color:#52614f;margin-top:15px;padding-top:12px;border-top:1px dashed #b5b99d}
 .atlas-map-source a{color:inherit;text-underline-offset:3px}
-.atlas-layout button:focus-visible,.atlas-layout select:focus-visible,.atlas-indicator-strip button:focus-visible{outline:3px solid #b84b37;outline-offset:3px}
-.atlas-filter{flex-wrap:wrap}
-.atlas-filter button{min-width:40px;min-height:40px}
+.atlas-layout button:focus-visible,.atlas-layout input:focus-visible,.atlas-layout select:focus-visible,.atlas-indicator-strip button:focus-visible{outline:3px solid #b13b2e;outline-offset:3px}
+.atlas-layout .municipality-panel{padding:20px;background:#faf4e3}
+.atlas-coverage{padding:0 0 17px;margin-bottom:18px;border-bottom:1px solid #a7b69a;color:#294f40}
+.atlas-data-edition{display:block;font:700 10px/1.6 'IBM Plex Mono',monospace;letter-spacing:.04em;color:#176349}
+.atlas-coverage h3{font:900 30px/1.15 'Barlow Condensed',sans-serif;margin:9px 0 17px;color:#173f72}
+.atlas-coverage h3>small{font:600 9px/1.6 'IBM Plex Mono',monospace;white-space:nowrap;color:#496450}
+.atlas-coverage-counts{display:grid;grid-template-columns:1fr 1fr;gap:15px;padding:12px;background:#e6edda;border-top:3px solid #f3cc48}
+.atlas-coverage-counts>div{display:flex;flex-direction:column;gap:5px}
+.atlas-coverage-counts strong{font:900 31px/1 'Barlow Condensed',sans-serif;color:#164e3a;font-variant-numeric:tabular-nums}
+.atlas-coverage-counts strong small{font-size:18px;font-weight:700}
+.atlas-coverage-counts span{font:600 10px/1.5 'IBM Plex Mono',monospace;color:#375346}
+.atlas-coverage p{font:500 12px/1.7 'DM Sans',sans-serif;margin:12px 0 0;color:#3a5447}
+.atlas-coverage p button{display:inline;background:transparent;border:0;padding:0;text-decoration:underline;color:#173f72;font-weight:700}
+.atlas-layout .input-search{background:#fffaf0;border:1px solid #8aa592;box-shadow:none;color:#176349}
+.atlas-layout .atlas-sort{font-size:10px;line-height:1.5;color:#365743;flex-wrap:wrap}
+.atlas-layout .atlas-sort select{min-height:40px;background:#f2e9ce;border-color:#a7b295;color:#264c3c}
+.atlas-layout .atlas-selected{background:#fff1b4;border:1px solid #b3a04e;border-left:4px solid #b13b2e;color:#173f72}
+.atlas-layout .atlas-scroll-list{max-height:420px;gap:4px;scrollbar-color:#7c9d83 #f0ead6}
+.atlas-layout .atlas-scroll-list button{border-color:#c3ccb5;background:#fffaf0;color:#173f72;padding:12px}
+.atlas-layout .atlas-scroll-list button:hover{background:#edf1df;border-color:#7c9c84}
+.atlas-layout .atlas-scroll-list button.active{border:2px solid #176349;background:#e6eccf}
+.atlas-layout .atlas-scroll-list button strong{font-size:21px;line-height:1.15}
+.atlas-layout .atlas-scroll-list button small{color:#3c6650;font-size:10px}
+.atlas-layout .atlas-scroll-list button>b{font-size:12px}
+.atlas-more{width:100%;min-height:43px;margin-top:10px;padding:10px;border:1px solid #8da78d;background:#f2e6c1;color:#1b4b3d;font:700 10px/1.5 'IBM Plex Mono',monospace}
+.atlas-layout .atlas-count-note{font-size:10px;color:#4a614f;line-height:1.7}
 .archive-v6-floating-title{font-size:clamp(22px,2.5vw,35px)}
 .archive-v6-camera-hint{max-width:calc(100% - 30px);line-height:1.5;text-align:right}
-@media(max-width:900px){.atlas-layout{grid-template-columns:1fr}.atlas-geographic-map{max-height:550px}.atlas-cartography{padding:18px}}
-@media(max-width:600px){.atlas-cartography{padding:14px 10px}.atlas-map-heading{align-items:start}.atlas-map-edition{display:none}.atlas-map-key{font-size:9px}.atlas-map-instruction{font-size:11px}.atlas-map-heading h3{font-size:29px}.atlas-map-heading button{font-size:9px;padding:7px}.archive-v6-camera-hint{font-size:8px;left:10px;right:auto;text-align:left}.archive-v6-floating-title{font-size:24px}}
+@media(max-width:1100px){.atlas-visual-controls{flex-wrap:wrap}.atlas-numeric-legend ul{grid-template-columns:repeat(3,minmax(0,1fr))}.atlas-layout{grid-template-columns:minmax(0,1.4fr) minmax(290px,1fr)}}
+@media(max-width:900px){.atlas-layout{grid-template-columns:1fr}.atlas-cartography{padding:18px}.atlas-numeric-legend ul{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:600px){.atlas-cartography{padding:16px 12px}.atlas-layout{gap:18px}.atlas-layout .atlas-filter{padding:12px 12px 0}.atlas-visual-controls{padding:12px 12px 0}.atlas-visual-controls>span{flex-basis:100%;font-size:10px}.atlas-map-heading{align-items:start}.atlas-map-edition{display:none}.atlas-map-instruction{font-size:12px}.atlas-map-heading h3{font-size:31px}.atlas-map-heading button{font-size:10px;padding:7px}.atlas-numeric-legend{padding:12px}.atlas-numeric-legend ul{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 14px}.atlas-numeric-legend li{font-size:11px}.atlas-map-readout{font-size:10px}.atlas-layout .municipality-panel{padding:17px 13px}.atlas-layout .atlas-scroll-list button>b{font-size:11px}.archive-v6-camera-hint{font-size:8px;left:10px;right:auto;text-align:left}.archive-v6-floating-title{font-size:24px}}
 @media(prefers-reduced-motion:reduce){.atlas-region{transition:none}}
 .archive-v6-lower>.candidate-dossier{grid-column:auto;min-width:0;position:sticky;top:90px}
 @media(max-width:710px){.archive-v6-lower>.candidate-dossier{position:static}.archive-v6-floating-title small{font-size:8px;margin-top:7px}}
@@ -316,14 +364,11 @@
 .sticker-budgets button svg{grid-column:4;grid-row:1/3}
 
 /* Atlas: do mapa de dados a um atlas geográfico impresso */
-.atlas-map-sheet{background:radial-gradient(circle at 45% 60%,#f6e9c9,#d8c6a5);box-shadow:inset 0 0 0 7px #e5d4b6,inset 0 0 0 9px #b79b71,inset 0 0 60px #8c714a55;overflow:hidden}
-.atlas-map-sheet:before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(90deg,transparent 0 32.8%,#75583811 33%,#ffffff25 33.5%,transparent 34%)}
-.atlas-geographic-map{filter:drop-shadow(2px 4px 1px #80654240)}
-.atlas-graticule{stroke:#9985695c;stroke-width:.9;vector-effect:non-scaling-stroke}
-.atlas-map-seal rect{fill:#f0d79f;stroke:#173e78;stroke-width:1.5}
-.atlas-map-seal text{font:800 12px 'IBM Plex Mono';fill:#173e78}
-.atlas-map-scale rect{fill:#edc35c;stroke:#173e78;stroke-width:.8}
-.atlas-map-scale text{font:700 9px 'IBM Plex Mono';fill:#173e78}
+.atlas-graticule{stroke:#76989b;stroke-width:.6;vector-effect:non-scaling-stroke;stroke-dasharray:2 5}
+.atlas-map-seal rect{fill:#f3cc48;stroke:#176349;stroke-width:1.5}
+.atlas-map-seal text{font:800 12px 'IBM Plex Mono';fill:#176349}
+.atlas-map-scale rect{fill:#f3cc48;stroke:#173f72;stroke-width:.8}
+.atlas-map-scale text{font:700 10px 'IBM Plex Mono';fill:#173f72}
 
 @media(max-width:1350px){.archive-v7-theatre{grid-template-columns:minmax(0,1.5fr) minmax(325px,.8fr)}.archive-v7-scene-sheet{width:52%}}
 @media(max-width:1020px){.archive-v7-theatre{grid-template-columns:1fr}.archive-v7-scene{position:static}.archive-v7-rail{max-height:none;min-height:0}.archive-v7-rail .archive-v6-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.archive-v7-catalogue .archive-v6-folder-list{grid-template-columns:repeat(2,minmax(0,1fr))}.archive-v7-canvas{height:650px}.sticker-shop-grid{grid-template-columns:1fr}.sticker-wall{min-height:520px}.sticker-notebook{min-height:0}.sticker-cluster{margin-top:5px}}

@@ -2,17 +2,38 @@ import {geoArea} from 'd3-geo';
 
 export const COVERAGE = ['CE','MA','MS','RJ','RN','RS'];
 export const indicatorSettings = {
-  abstencao_2024:{label:'ABSTENÇÃO (%)',low:8,high:34},
-  idhm:{label:'IDHM*',low:.52,high:.85},
-  pib_per_capita:{label:'PIB POR HABITANTE (R$)',low:9000,high:100000},
-  populacao:{label:'POPULAÇÃO',low:1000,high:1000000},
+  abstencao_2024:{label:'ABSTENÇÃO (%)',breaks:[15,20,25,30],context:'2024 · Participação eleitoral municipal · Sem recorte por cargo'},
+  idhm:{label:'IDHM*',breaks:[.6,.65,.7,.75],context:'2010 · Índice municipal · Sem recorte de cargo'},
+  pib_per_capita:{label:'PIB POR HABITANTE (R$)',breaks:[20000,40000,60000,80000],context:'Referência 2022 no acervo · Indicador municipal · Sem recorte de cargo'},
+  populacao:{label:'POPULAÇÃO',breaks:[25000,100000,500000,1000000],context:'Referência 2022 no acervo · Indicador municipal · Sem recorte de cargo'},
 };
-export const MAP_COLORS = ['#f7dfa2','#e5b55d','#c7764c','#ad4439','#244e86'];
+// A sequential ink scale, separate from the decorative green/yellow identity.
+// Fixed breaks allow the same value to keep its colour across UFs and searches.
+export const MAP_COLORS = ['#dcecf1','#a9cedd','#6da6bd','#357490','#153f5b'];
+export const NO_DATA_COLOR = '#d5d2c9';
+export function hasIndicatorValue(value){
+  return (typeof value==='number'||typeof value==='string')&&String(value).trim()!==''&&Number.isFinite(Number(value));
+}
+export function indicatorClass(value,indicator){
+  if(!hasIndicatorValue(value))return -1;
+  return indicatorSettings[indicator].breaks.filter(boundary=>Number(value)>=boundary).length;
+}
+export function formatIndicator(value,indicator){
+  if(!hasIndicatorValue(value))return 'Sem dados neste recorte';
+  const number=Number(value).toLocaleString('pt-BR',{maximumFractionDigits:indicator==='idhm'?3:indicator==='populacao'?0:2});
+  return indicator==='pib_per_capita'?`R$ ${number}`:number+(indicator==='abstencao_2024'?'%':'');
+}
+export function indicatorLegend(indicator){
+  const {breaks}=indicatorSettings[indicator];
+  return MAP_COLORS.map((color,index)=>{
+    const lower=index===0?null:breaks[index-1],upper=breaks[index]??null;
+    const label=lower==null?`< ${formatIndicator(upper,indicator)}`:upper==null?`≥ ${formatIndicator(lower,indicator)}`:`${formatIndicator(lower,indicator)} a < ${formatIndicator(upper,indicator)}`;
+    return {color,lower,upper,label};
+  });
+}
 export function mapColor(value,indicator){
-  if(value==null||!Number.isFinite(Number(value)))return '#d5d2c9';
-  const {low,high}=indicatorSettings[indicator];
-  const fraction=Math.max(0,Math.min(1,(Number(value)-low)/(high-low)));
-  return MAP_COLORS[Math.min(4,Math.floor(fraction*5))];
+  const index=indicatorClass(value,indicator);
+  return index<0?NO_DATA_COLOR:MAP_COLORS[index];
 }
 // RFC 7946 and d3-geo use opposite exterior ring winding conventions.
 // Normalize a copy so Brazilian polygons never render as the rest of the globe.

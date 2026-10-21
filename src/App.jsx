@@ -12,7 +12,8 @@ import {
   ResponsiveContainer,PieChart,Pie,Cell,Legend,ReferenceLine
 } from 'recharts';
 import GeoAtlas from './components/GeoAtlas.jsx';
-import {indicatorSettings as atlasIndicators,MAP_COLORS} from './atlas/geography.js';
+import {indicatorSettings as atlasIndicators,formatIndicator as formatAtlasIndicator} from './atlas/geography.js';
+import {loadAtlasMunicipios,atlasCoverage,filterAtlasRows} from './atlas/data.js';
 import Plenario3D,{plenarioAssentos} from './components/Plenario3D.jsx';
 import Televisao3D from './components/Televisao3D.jsx';
 import ComparisonPanel from './components/ComparisonPanel.jsx';
@@ -23,7 +24,7 @@ import MuralCampanhas from './pages/MuralCampanhas.jsx';
 import PrestacaoDeContas from './pages/PrestacaoDeContas.jsx';
 import {blockSeats} from './components/data.js';
 import {analyses,states,overview,stamp} from './data/snapshot.js';
-import {getHealth,getOverview,getAnalysis,getMunicipios} from './data/client.js';
+import {getHealth,getOverview,getAnalysis} from './data/client.js';
 import {municipiosAmostra} from './data/municipios-amostra.js';
 
 const COLORS=['#173e78','#d24c39','#e7b83d','#21765e','#68718a','#bb7847'];
@@ -69,20 +70,40 @@ function Home({onGo,mode,data}){
 }
 
 function Atlas({mode,onResearch}){
- const [uf,setUf]=useState(''),[text,setText]=useState(''),[municipios,setMunicipios]=useState([]),[loading,setLoading]=useState(false);
+ const [uf,setUf]=useState(''),[text,setText]=useState(''),[liveData,setLiveData]=useState(null),[failedUf,setFailedUf]=useState(null),[requestVersion,setRequestVersion]=useState(0);
  const [indicator,setIndicator]=useState('abstencao_2024'),[order,setOrder]=useState('desc'),[selected,setSelected]=useState(null);
+ const [visibleCount,setVisibleCount]=useState(60);
  const [mapEffects,setMapEffects]=useState(false),[reducedMotion,setReducedMotion]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
  useEffect(()=>{const query=window.matchMedia('(prefers-reduced-motion: reduce)');const update=()=>setReducedMotion(query.matches);query.addEventListener('change',update);return()=>query.removeEventListener('change',update)},[]);
- useEffect(()=>{if(mode!=='live')return;let active=true;setLoading(true);setMunicipios([]);const t=setTimeout(async()=>{try{const rows=await getMunicipios({search:text,uf,limit:1500});if(active)setMunicipios(rows)}catch{if(active)setMunicipios([])}finally{if(active)setLoading(false)}},250);return()=>{active=false;clearTimeout(t)}},[mode,uf,text]);
- const filtered=useMemo(()=>{const data=mode==='live'?municipios:municipiosAmostra.filter(m=>(!uf||m.uf===uf)&&(!text||m.nome.toLowerCase().includes(text.toLowerCase())));return [...data].sort((a,b)=>{const x=a[indicator],y=b[indicator];if(x==null)return 1;if(y==null)return -1;return (Number(x)-Number(y))*(order==='asc'?1:-1)})},[mode,municipios,uf,text,indicator,order]);
- const fmt=(m)=>m?.[indicator]==null?'Sem registro':indicator==='idhm'?Number(m[indicator]).toFixed(3):indicator==='abstencao_2024'?fNum(m[indicator])+'%':indicator==='pib_per_capita'?money(m[indicator]):fNum(m[indicator]);
- return <><SectionHero kicker="AMBIENTE 02 / TERRITÓRIO" title={<>DESDOBRE O <em>ATLAS.</em></>} detail="Filtre por estado e município. Compare abstenção, desenvolvimento, população e PIB por habitante com os dados disponíveis no acervo."/>
+ useEffect(()=>{
+   if(mode!=='live')return;
+   let active=true;setLiveData(null);setFailedUf(null);
+   loadAtlasMunicipios(uf).then(rows=>{if(active)setLiveData({uf,rows})}).catch(()=>{if(active)setFailedUf(uf)});
+   return()=>{active=false};
+ },[mode,uf,requestVersion]);
+ useEffect(()=>setVisibleCount(60),[uf,text,indicator,order]);
+ const liveReady=mode==='live'&&liveData?.uf===uf;
+ const loading=mode==='live'&&!liveReady&&failedUf!==uf;
+ const atlasRows=useMemo(()=>liveReady?liveData.rows:loading?[]:municipiosAmostra.filter(m=>!uf||m.uf===uf),[liveReady,liveData,loading,uf]);
+ const filtered=useMemo(()=>filterAtlasRows(atlasRows,text,indicator,order),[atlasRows,text,indicator,order]);
+ const coverage=atlasCoverage(atlasRows,indicator,uf);
+ const fmt=m=>formatAtlasIndicator(m?.[indicator],indicator);
+ const chooseUf=value=>{setUf(value);setSelected(null)};
+ return <><div className="atlas-introduction"><SectionHero kicker="AMBIENTE 02 / CADERNO DE CARTOGRAFIA" title={<>DESDOBRE O <em>ATLAS.</em></>} detail="Um território, muitas leituras. Abra um estado, encontre um município e consulte os indicadores do acervo. A cor mede valores; as fichas guardam os números."/></div>
  <div className="atlas-indicator-strip"><span>COLORIR O MAPA POR</span>{Object.entries(atlasIndicators).map(([key,v])=><button key={key} className={indicator===key?'active':''} aria-pressed={indicator===key} onClick={()=>{setIndicator(key);setSelected(null)}}>{v.label}</button>)}</div>
- <div className="atlas-layout"><Frame label="ATLAS MUNICIPAL · INDICADORES" right="SEIS UNIDADES FEDERATIVAS"><div className="atlas-filter"><button className={!uf?'active':''} aria-pressed={!uf} onClick={()=>{setUf('');setSelected(null)}}>TODOS</button>{states.map(s=><button className={uf===s.uf?'active':''} aria-pressed={uf===s.uf} key={s.uf} onClick={()=>{setUf(s.uf);setSelected(null)}}>{s.uf}</button>)}</div><div className="atlas-visual-controls"><button type="button" aria-pressed={mapEffects} onClick={()=>setMapEffects(v=>!v)}>EFEITO DE COR {mapEffects?'LIGADO':'DESLIGADO'}</button><span>{indicator==='abstencao_2024'?'2024 · ELEIÇÃO MUNICIPAL · VEREADOR · ':''}{uf||'6 UFs'} · {atlasIndicators[indicator].label}{reducedMotion?' · MOVIMENTO REDUZIDO':''}</span></div><GeoAtlas uf={uf} onUf={value=>{setUf(value);setSelected(null)}} onSelect={setSelected} municipios={filtered} indicator={indicator} selected={selected} effects={mapEffects} reducedMotion={reducedMotion}/>{uf&&<div className="atlas-legend"><span>VALORES MENORES</span>{MAP_COLORS.map(c=><i key={c} style={{background:c}}/>)}<span>MAIORES</span><small>Áreas cinzas: sem dados neste recorte.</small></div>}</Frame>
- <Frame label="FICHÁRIO TERRITORIAL" right="COMPARE MUNICÍPIOS"><div className="municipality-panel"><div className="input-search"><Search size={18}/><input aria-label="Buscar município" placeholder="Nome de município..." value={text} onChange={e=>{setText(e.target.value);setSelected(null)}}/></div><div className="atlas-sort"><strong>{filtered.length} MUNICÍPIOS EXIBIDOS</strong><select aria-label="Ordenar indicadores" value={order} onChange={e=>setOrder(e.target.value)}><option value="desc">Maiores valores</option><option value="asc">Menores valores</option></select></div>
+ <div className="atlas-layout"><Frame label="ATLAS MUNICIPAL · INDICADORES" right="SEIS UNIDADES FEDERATIVAS">
+ <div className="atlas-filter"><button className={!uf?'active':''} aria-pressed={!uf} onClick={()=>chooseUf('')}>BRASIL</button>{states.map(s=><button className={uf===s.uf?'active':''} aria-pressed={uf===s.uf} key={s.uf} onClick={()=>chooseUf(s.uf)}>{s.uf}</button>)}</div>
+ <div className="atlas-visual-controls"><button type="button" aria-pressed={mapEffects} onClick={()=>setMapEffects(v=>!v)}>EFEITO DE COR {mapEffects?'LIGADO':'DESLIGADO'}</button><span>{atlasIndicators[indicator].context} · {uf||'6 UFs'}{reducedMotion?' · MOVIMENTO REDUZIDO':''}</span></div>
+ <GeoAtlas uf={uf} onUf={chooseUf} onSelect={setSelected} municipios={atlasRows} indicator={indicator} selected={selected} effects={mapEffects} reducedMotion={reducedMotion} loading={loading}/>
+ </Frame>
+ <Frame label="FICHÁRIO TERRITORIAL" right="COMPARE MUNICÍPIOS"><div className="municipality-panel">
+ <div className="atlas-coverage" role="status" aria-live="polite"><span className="atlas-data-edition">{loading?'ABRINDO O ACERVO':liveReady?'CONSULTA AO ACERVO':'AMOSTRA OFFLINE · 21/10/2026'}</span><h3>{uf||'SEIS ESTADOS'} <small> / COBERTURA PARCIAL</small></h3>
+ {loading?<p>Carregando os dados dos {fNum(coverage.total)} municípios deste recorte…</p>:<><div className="atlas-coverage-counts"><div><strong>{fNum(coverage.loaded)}<small> / {fNum(coverage.total)}</small></strong><span>com ficha carregada</span></div><div><strong>{fNum(coverage.unloaded)}</strong><span>sem dados carregados</span></div></div><p>{atlasIndicators[indicator].label}: <b>{fNum(coverage.withValue)} com valor</b> · {fNum(coverage.withoutValue)} sem valor disponível no recorte. Ausência de dados não significa zero.</p>{liveReady&&coverage.unloaded>0&&<p>A consulta retornou uma cobertura parcial da UF. Os municípios sem ficha permanecem cinzas.</p>}{failedUf===uf&&<p>Não foi possível atualizar a consulta. Exibindo a amostra arquivada. <button type="button" onClick={()=>setRequestVersion(v=>v+1)}>Tentar novamente</button></p>}</>}
+ </div>
+ <div className="input-search"><Search size={18}/><input aria-label="Buscar município" placeholder="Encontre uma ficha pelo nome..." value={text} onChange={e=>{setText(e.target.value);setSelected(null)}}/></div><div className="atlas-sort"><strong>{filtered.length} FICHAS ENCONTRADAS</strong><select aria-label="Ordenar indicadores" value={order} onChange={e=>setOrder(e.target.value)}><option value="desc">Maiores valores</option><option value="asc">Menores valores</option></select></div>
  {selected&&<div className="atlas-selected"><span>FICHA SELECIONADA</span><h3>{selected.nome} · {selected.uf}</h3><div><b>{atlasIndicators[indicator].label}</b><strong>{fmt(selected)}</strong></div><p>População: {fNum(selected.populacao)} · Abstenção 2024: {selected.abstencao_2024==null?'—':fNum(selected.abstencao_2024)+'%'}</p></div>}
- {loading?<p className="data-unavailable">Abrindo fichas do território…</p>:<div className="municipio-list atlas-scroll-list">{filtered.slice(0,120).map(m=><button className={selected?.id===m.id?'active':''} key={m.id} onClick={()=>{setSelected(m);setUf(m.uf)}}><span><strong>{m.nome}</strong><small>{m.uf}</small></span><b>{fmt(m)}</b></button>)}{!filtered.length&&<p>Nenhum município encontrado no recorte atual.</p>}</div>}
- <p className="atlas-count-note">{mode==='live'?'Consulta detalhada da cobertura disponível.':'Amostra documentada de 18 municípios para exploração imediata.'} O atlas não representa resultados de todo o país.</p></div></Frame></div>
+ {loading?<p className="data-unavailable">Abrindo fichas do território…</p>:<><div className="municipio-list atlas-scroll-list">{filtered.slice(0,visibleCount).map(m=><button className={selected?.id===m.id?'active':''} key={m.id} onClick={()=>{setSelected(m);setUf(m.uf)}}><span><strong>{m.nome}</strong><small>{m.uf}</small></span><b>{fmt(m)}</b></button>)}{!filtered.length&&<p>Nenhuma ficha encontrada no recorte atual.</p>}</div>{visibleCount<filtered.length&&<button type="button" className="atlas-more" onClick={()=>setVisibleCount(n=>n+60)}>MOSTRAR MAIS FICHAS · {Math.min(visibleCount,filtered.length)} DE {filtered.length}</button>}</>}
+ <p className="atlas-count-note">A busca filtra somente o fichário e mantém os dados do mapa. O Atlas cobre CE, MA, MS, RJ, RN e RS; não representa todo o país.</p></div></Frame></div>
  <div className="atlas-investigate"><div><strong>O QUE O TERRITÓRIO EXPLICA?</strong><p>Em 2022, a associação IDHM × abstenção foi negativa no conjunto analisado; em 2024, mudou de sinal. A composição estadual e os anos precisam ser analisados separadamente.</p></div><button onClick={()=>onResearch(3)}>DESDOBRAR ESTA INVESTIGAÇÃO <ArrowUpRight size={15}/></button><button onClick={()=>onResearch(7)}>VER A MUDANÇA NOS PARTIDOS <ArrowUpRight size={15}/></button></div>
  <ComparisonPanel topic="atlas" mode={mode} municipios={filtered}/>
  <p className="editorial-note">* IDHM do acervo tem valores referentes a 2010, mesmo quando consta numa linha de referência 2022. População/PIB e participação eleitoral podem ter anos de referência distintos; confira a metodologia na seção Investigações.</p></>;

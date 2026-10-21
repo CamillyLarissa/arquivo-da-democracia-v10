@@ -26,25 +26,31 @@ YEARS = set(range(2002, 2025, 2))
 
 def _open():
     global _con
-    if _con is not None:
-        return _con
-    if not os.getenv('MOTHERDUCK_TOKEN'):
-        raise RuntimeError('MOTHERDUCK_TOKEN não configurado no servidor')
-    share = os.getenv('MOTHERDUCK_SHARE_URL', '')
-    if not share.startswith('md:_share/') or not re.fullmatch(r'md:_share/[\w-]+/[0-9a-fA-F-]{36}', share):
-        raise RuntimeError('MOTHERDUCK_SHARE_URL ausente ou inválida')
-    import duckdb
-    con = duckdb.connect('md:')
-    # O MotherDuck pode anexar automaticamente shares usados anteriormente.
-    attached = {name: path for _, name, path in con.execute('PRAGMA database_list').fetchall()}
-    if DB in attached:
-        if attached[DB] != share.removeprefix('md:'):
-            raise RuntimeError(f'Alias {DB} já aponta para outro banco')
-    else:
-        # URI lida SOMENTE do ambiente; formato validado estritamente acima.
-        con.execute(f"ATTACH '{share}' AS {DB} (READ_ONLY)")
-    _con = con
-    return con
+    with _lock:
+        if _con is not None:
+            return _con
+        if not os.getenv('MOTHERDUCK_TOKEN'):
+            raise RuntimeError('MOTHERDUCK_TOKEN não configurado no servidor')
+        share = os.getenv('MOTHERDUCK_SHARE_URL', '')
+        if not re.fullmatch(r'md:_share/[\w-]+/[0-9a-fA-F-]{36}', share):
+            raise RuntimeError('MOTHERDUCK_SHARE_URL ausente ou inválida')
+        import duckdb
+        con = duckdb.connect('md:')
+        try:
+            # Shares já usados podem ser anexados automaticamente pelo MotherDuck.
+            # Reutilizar o alias evita "a share with name 'v3' is already attached".
+            attached = {name: path for _, name, path in con.execute('PRAGMA database_list').fetchall()}
+            if DB in attached:
+                if str(attached[DB]).removeprefix('md:') != share.removeprefix('md:'):
+                    raise RuntimeError(f'Alias {DB} já aponta para outro banco')
+            else:
+                # URI lida SOMENTE do ambiente e validada antes de compor o SQL.
+                con.execute(f"ATTACH '{share}' AS {DB} (READ_ONLY)")
+        except Exception:
+            con.close()
+            raise
+        _con = con
+        return con
 
 
 def _rows(sql, params=()):

@@ -15,6 +15,8 @@ from fastapi.responses import JSONResponse
 app = FastAPI(title="Arquivo da Democracia — API MotherDuck", version="1.0.0")
 from comparacoes import router as comparacoes_router
 app.include_router(comparacoes_router)
+from mural import router as mural_router, candidate_scope, RESULT_GROUP
+app.include_router(mural_router)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET"], allow_headers=["*"])
 _lock = threading.RLock()
 _con = None
@@ -90,7 +92,7 @@ def health():
 @app.get('/api/overview')
 def overview():
     tables = {'applications':'Candidatura','people':'Candidato','expenses':'Despesa_Candidatura','patrimony':'Patrimonio_Candidato','partyVotes':'Votos_Partido_Municipio','coverage':'Municipio'}
-    parts = [f"SELECT '{k}' field, COUNT(*) value FROM {DB}.main.{table}" for k,table in tables.items()]
+    parts = [f'''SELECT '{k}' AS field, COUNT(*) AS "value" FROM {DB}.main.{table}''' for k,table in tables.items()]
     rows = _rows(' UNION ALL '.join(parts))
     return {'source':'live','values':{r['field']:r['value'] for r in rows},'states':6,'disclaimer':'Cobertura parcial de 6 UFs, não nacional.'}
 
@@ -98,39 +100,18 @@ def overview():
 @app.get('/api/candidates')
 def candidates(search: str = Query('', min_length=0, max_length=80), ano:int=2024, uf:str|None=None,
                partido:str=Query('',max_length=35),cargo:str=Query('',max_length=50),resultado:str=Query('',max_length=35),
-               limit:int=Query(12,ge=1,le=36),offset:int=Query(0,ge=0,le=1000000),ordem:str='votos'):
-    _year(ano);uf=_uf(uf)
-    # Whitelist de ordenação: nenhum identificador SQL é aceito diretamente da URL.
-    if resultado not in ('','ELEITO','NÃO ELEITO','SUPLENTE'):
-        raise HTTPException(400,'Resultado não reconhecido')
-    orders={'votos':'r.votos DESC NULLS LAST','gastos':'c.gastos_campanha_total DESC NULLS LAST','custo_voto':'c.gastos_campanha_total/NULLIF(r.votos,0) DESC NULLS LAST'}
-    if ordem not in orders: raise HTTPException(400, 'Ordenação desconhecida')
-    order=orders[ordem]
-    # Busca completa paginada; filtros como parâmetros preparados.
-    sql=f'''
-      SELECT c.id_candidatura id,c.nome_urna nome,c.numero_urna numero,p.sigla partido,
-       UPPER(e.cargo) cargo,e.ano,c.uf,m.nome municipio,c.escolaridade_candidatura escolaridade,
-       c.patrimonio patrimonio,c.gastos_campanha_total gastos,r.resultado resultado,r.votos votos,
-       COUNT(*) OVER() total_encontrado
-      FROM {DB}.main.Candidatura c
-      JOIN {DB}.main.Eleicao e ON c.id_eleicao=e.id_eleicao
-      LEFT JOIN {DB}.main.Partido p ON c.id_partido=p.id_partido
-      LEFT JOIN {DB}.main.Municipio m ON c.id_municipio=m.id_municipio
-      LEFT JOIN {DB}.main.Resultado_Candidatura r ON c.id_candidatura=r.id_candidatura
-      WHERE e.ano=? AND e.tipo_eleicao NOT ILIKE '%SUPLEMENTAR%'
-        AND (strip_accents(COALESCE(c.nome_urna,'')) ILIKE strip_accents(?) OR strip_accents(COALESCE(m.nome,'')) ILIKE strip_accents(?) OR strip_accents(COALESCE(p.sigla,'')) ILIKE strip_accents(?) OR CAST(c.numero_urna AS VARCHAR) ILIKE ?)
-        AND (? IS NULL OR c.uf=?)
-        AND (?='' OR UPPER(p.sigla)=UPPER(?))
-        AND (?='' OR UPPER(e.cargo)=UPPER(?))
-        AND (?='' OR (?='ELEITO' AND UPPER(COALESCE(r.resultado,'')) LIKE 'ELEITO%')
-             OR (?='NÃO ELEITO' AND UPPER(COALESCE(r.resultado,'')) IN ('NÃO ELEITO','NAO ELEITO'))
-             OR (?='SUPLENTE' AND UPPER(COALESCE(r.resultado,''))='SUPLENTE'))
-      ORDER BY {order},c.nome_urna,c.id_candidatura
-      LIMIT ? OFFSET ?'''
-    params=[ano,*([f'%{search}%']*4),uf,uf,partido,partido,cargo,cargo,resultado,resultado,resultado,resultado,limit,offset]
-    rows=_rows(sql,params)
+               limit:int=Query(12,ge=1,le=36),offset:int=Query(0,ge=0,le=1000000),ordem:str='votos',municipio:str=''):
+    base, params = candidate_scope(ano,uf,partido,cargo,resultado,search,municipio)
+    orders = {'votos':'votos DESC NULLS LAST','gastos':'gastos DESC NULLS LAST',
+              'custo_voto':'CASE WHEN votos>0 THEN gastos/votos ELSE NULL END DESC NULLS LAST',
+              'resultado':f"{RESULT_GROUP},votos DESC NULLS LAST", 'partido':"partido ASC NULLS LAST,votos DESC NULLS LAST"}
+    if ordem not in orders:
+        raise HTTPException(400, 'Ordenacao desconhecida')
+    sql = f'WITH b AS ({base}) SELECT *,COUNT(*) OVER() total_encontrado FROM b ORDER BY {orders[ordem]},nome,id LIMIT ? OFFSET ?'
+    rows = _rows(sql,[*params,limit,offset])
     return {'rows':[{k:v for k,v in row.items() if k!='total_encontrado'} for row in rows],
             'total':rows[0]['total_encontrado'] if rows else 0,'limit':limit,'offset':offset}
+
 
 @app.get('/api/candidate-expenses/{candidate_id}')
 def candidate_expenses(candidate_id:str, categoria:str=Query('',max_length=300),

@@ -1,0 +1,52 @@
+{
+  "desktop": {
+    "elements": 1185,
+    "posters": 18,
+    "overflow": false,
+    "reorderTwoFramesMs": [
+      118.29999999701977,
+      108.29999999701977,
+      125.6000000089407,
+      75.5,
+      49.30000001192093,
+      46.70000000298023,
+      59.400000005960464,
+      45.5
+    ],
+    "reorder_two_frames_median_ms": 67.5,
+    "errors": [],
+    "checks": "selection, reverse, ledger, keyboard, 3-way comparison, grouping, zoom, grid, exact table, pagination, filters, missing data, WebGL disabled"
+  },
+  "mobile": {
+    "elements": 1185,
+    "posters": 18,
+    "overflow": false,
+    "reorderTwoFramesMs": [
+      98.8999999910593,
+      101.40000000596046,
+      123.19999998807907,
+      68.59999999403954,
+      57.20000000298023,
+      52.1000000089407,
+      46.900000005960464,
+      39.1000000089407
+    ],
+    "reorder_two_frames_median_ms": 62.9,
+    "errors": [],
+    "checks": "selection, reverse, ledger, keyboard, 3-way comparison, grouping, zoom, grid, exact table, pagination, filters, missing data, WebGL disabled"
+  },
+  "reduced_motion": {
+    "passed": true,
+    "webgl": "disabled"
+  },
+  "live": {
+    "passed": true,
+    "scope": "2024 VEREADOR, CE/Fortaleza, NÃO ELEITO",
+    "municipalities_CE": 184,
+    "count": "145 CANDIDATURAS NO RECORTE · 18 EXIBIDAS\nRANKINGS DO RECORTE COMPLETO · 2024 / VEREADOR",
+    "errors": []
+  },
+  "error_and_explicit_sample_fallback": {
+    "passed": true
+  }
+}

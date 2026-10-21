@@ -1,0 +1,137 @@
+{
+  "/health": {
+    "seconds": 6.717,
+    "connected": true,
+    "mode": "live"
+  },
+  "/mural/resumo?ano=2024&cargo=VEREADOR": {
+    "seconds": 2.803,
+    "stats": {
+      "total": 84953,
+      "votos_informados": 81409,
+      "votos": 27221250,
+      "gastos_informados": 84366,
+      "gastos": 676566596.81
+    },
+    "leaders": [
+      {
+        "criterio": "votos",
+        "id": "54baa287d10f5c8b7c8f355b9c8a6b25",
+        "nome": "CARLOS BOLSONARO",
+        "numero": 22222,
+        "partido": "PL",
+        "cargo": "VEREADOR",
+        "ano": 2024,
+        "uf": "RJ",
+        "municipio": "Rio de Janeiro",
+        "municipio_id": "3304557",
+        "escolaridade": "SUPERIOR COMPLETO",
+        "patrimonio": 1982689.43,
+        "gastos": 1507521.81,
+        "resultado": "ELEITO POR QP",
+        "votos": 130480
+      },
+      {
+        "criterio": "gastos",
+        "id": "d62f926d298aee98513c30d5e7913e21",
+        "nome": "JORGE CANELLA",
+        "numero": 44123,
+        "partido": "UNI\u00c3O",
+        "cargo": "VEREADOR",
+        "ano": 2024,
+        "uf": "RJ",
+        "municipio": "Rio de Janeiro",
+        "municipio_id": "3304557",
+        "escolaridade": "SUPERIOR COMPLETO",
+        "patrimonio": 90000.0,
+        "gastos": 1953329.19,
+        "resultado": "ELEITO POR QP",
+        "votos": 19353
+      }
+    ],
+    "results": [
+      {
+        "grupo": "eleito",
+        "quantidade": 13139,
+        "gastos_informados": 13137,
+        "gastos": 192893795.97,
+        "media_gastos": 14683.25
+      },
+      {
+        "grupo": "indefinido",
+        "quantidade": 2790,
+        "gastos_informados": 2497,
+        "gastos": 2093231.81,
+        "media_gastos": 838.3
+      },
+      {
+        "grupo": "nao_eleito",
+        "quantidade": 21965,
+        "gastos_informados": 21739,
+        "gastos": 79539979.94,
+        "media_gastos": 3658.86
+      },
+      {
+        "grupo": "suplente",
+        "quantidade": 47059,
+        "gastos_informados": 46993,
+        "gastos": 402039589.09,
+        "media_gastos": 8555.31
+      }
+    ],
+    "materials": [
+      {
+        "grupo": "nao_identificado",
+        "registros": 316612,
+        "valores_informados": 316612,
+        "valor": 540918570.08,
+        "candidaturas": 80282
+      },
+      {
+        "grupo": "adesivos",
+        "registros": 94296,
+        "valores_informados": 94296,
+        "valor": 54401742.69,
+        "candidaturas": 35426
+      },
+      {
+        "grupo": "santinhos",
+        "registros": 39631,
+        "valores_informados": 39631,
+        "valor": 34604145.59,
+        "candidaturas": 30696
+      },
+      {
+        "grupo": "bandeiras",
+        "registros": 29149,
+        "valores_informados": 29149,
+        "valor": 27374643.96,
+        "candidaturas": 19585
+      },
+      {
+        "grupo": "outros_impressos",
+        "registros": 9562,
+        "valores_informados": 9562,
+        "valor": 15827716.04,
+        "candidaturas": 6911
+      },
+      {
+        "grupo": "mistos",
+        "registros": 1493,
+        "valores_informados": 1493,
+        "valor": 3439778.45,
+        "candidaturas": 1265
+      }
+    ]
+  },
+  "/candidates?ano=2024&cargo=VEREADOR&limit=18&offset=18&ordem=votos": {
+    "seconds": 0.299,
+    "total": 84953,
+    "limit": 18,
+    "offset": 18
+  },
+  "/municipios?uf=CE&limit=1500": {
+    "seconds": 0.172,
+    "rows": 184
+  }
+}

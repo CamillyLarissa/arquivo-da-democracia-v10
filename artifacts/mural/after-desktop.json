@@ -1,0 +1,18 @@
+{
+  "elements": 1185,
+  "posters": 18,
+  "overflow": false,
+  "reorderTwoFramesMs": [
+    118.29999999701977,
+    108.29999999701977,
+    125.6000000089407,
+    75.5,
+    49.30000001192093,
+    46.70000000298023,
+    59.400000005960464,
+    45.5
+  ],
+  "reorder_two_frames_median_ms": 67.5,
+  "errors": [],
+  "checks": "selection, reverse, ledger, keyboard, 3-way comparison, grouping, zoom, grid, exact table, pagination, filters, missing data, WebGL disabled"
+}

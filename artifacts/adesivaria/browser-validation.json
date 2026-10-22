@@ -1,0 +1,60 @@
+{
+  "desktop": {
+    "passed": true,
+    "errors": [],
+    "horizontal_overflow": false,
+    "checks": [
+      "original circular stickers",
+      "reverse by keyboard",
+      "modal and Escape",
+      "exact expenses vs campaign total",
+      "ledger",
+      "independent pagination",
+      "municipality code",
+      "party",
+      "material",
+      "year",
+      "archive link",
+      "finance link"
+    ]
+  },
+  "mobile": {
+    "passed": true,
+    "errors": [],
+    "horizontal_overflow": false,
+    "checks": [
+      "original circular stickers",
+      "reverse by keyboard",
+      "modal and Escape",
+      "exact expenses vs campaign total",
+      "ledger",
+      "independent pagination",
+      "municipality code",
+      "party",
+      "material",
+      "year",
+      "archive link",
+      "finance link"
+    ]
+  },
+  "reduced_motion": {
+    "passed": true,
+    "webgl": "disabled"
+  },
+  "live": {
+    "passed": true,
+    "errors": [],
+    "checks": [
+      "six states 84953",
+      "CE 12223",
+      "CE municipalities 184",
+      "Fortaleza 771",
+      "candidate ledger",
+      "category pagination",
+      "2022 federal CE 414",
+      "no federal municipal attribution",
+      "error state",
+      "explicit offline fallback"
+    ]
+  }
+}

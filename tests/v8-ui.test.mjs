@@ -23,9 +23,13 @@ test('a paginação das folhas fiscais busca mais do que os 35 primeiros registr
  assert.ok(src.includes('expenseOffset')); assert.ok(src.includes('limit:40'));
  assert.ok(api.includes('total_filtered'));assert.ok(api.includes('OFFSET ?'));
 });
-test('adesivo circular tem dobra e verso baseado em dados',()=>{
- const css=file('src/v8.css'),jsx=file('src/pages/Adesivaria.jsx');
- assert.ok(css.includes('.sticker-real{'));assert.ok(css.includes('border-radius:50%'));assert.ok(css.includes('.candidate-sticker-curl'));assert.ok(jsx.includes('candidate-sticker-back'));assert.ok(jsx.includes('c.votos'));
+test('adesivaria apresenta rankings de gastos e votos e preserva a consulta comparativa',()=>{
+ const jsx=file('src/pages/Adesivaria.jsx');
+ assert.ok(jsx.includes('QUEM PAGOU'));assert.ok(jsx.includes('gastos_classificados'));
+ const stickers=file('src/adesivaria/PodiumStickers.jsx');
+ assert.ok(stickers.includes('c.votos'));assert.ok(stickers.includes('candidate-sticker-back'));
+ assert.ok(stickers.includes('candidate-round-sticker'));assert.ok(jsx.includes('sticker-peel-corner'));assert.ok(jsx.includes('CandidatePanel'));
+ assert.ok(jsx.includes('topic="adesivos"'));assert.ok(jsx.includes('município da candidatura'));
 });
 test('o plenário mantém mesa, tribuna e import do texto no Three.js',()=>{
  const src=file('src/components/Plenario3D.jsx');

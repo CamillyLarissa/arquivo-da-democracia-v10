@@ -1,4 +1,4 @@
-import sys, unittest
+import sys, unittest, re
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'server'))
 import app
@@ -21,15 +21,17 @@ class V7Endpoints(unittest.TestCase):
  def test_stickers_use_aggregated_expenses_not_invoices(self):
   original=app._rows; seen=[]
   def fake(sql,params=()):
-   self.assertEqual(sql.count('?'),len(params))
+   self.assertEqual(re.sub(r"'(?:[^']|'')*'", "''", sql).count('?'),len(params))
    self.assertIn('Despesa_Candidatura',sql)
-   self.assertIn("LIKE 'ADESIV%'",sql)
+   self.assertIn('regexp_matches',sql)
+   self.assertIn('e.turno=1',sql)
+   self.assertIn('COUNT(DISTINCT r.votos)',sql)
    seen.append(sql)
-   return []
+   return [{'section':'stats','payload':'{}'}]
   app._rows=fake
   try:
    r=app.adesivaria(ano=2024,uf='CE',partido='PT')
-   self.assertEqual(len(seen),3)
+   self.assertEqual(len(seen),1)
    self.assertEqual(r['document_type'],'SINTESSE_DE_LANCAMENTOS')
   finally:app._rows=original
 if __name__=='__main__': unittest.main()

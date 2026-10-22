@@ -90,7 +90,7 @@ def health():
 @app.get('/api/overview')
 def overview():
     tables = {'applications':'Candidatura','people':'Candidato','expenses':'Despesa_Candidatura','patrimony':'Patrimonio_Candidato','partyVotes':'Votos_Partido_Municipio','coverage':'Municipio'}
-    parts = [f"SELECT '{k}' field, COUNT(*) value FROM {DB}.main.{table}" for k,table in tables.items()]
+    parts = [f'''SELECT '{k}' field, COUNT(*) AS "value" FROM {DB}.main.{table}''' for k,table in tables.items()]
     rows = _rows(' UNION ALL '.join(parts))
     return {'source':'live','values':{r['field']:r['value'] for r in rows},'states':6,'disclaimer':'Cobertura parcial de 6 UFs, não nacional.'}
 
@@ -299,34 +299,20 @@ def descobertas(ano: int=2024, cargo: str='VEREADOR', uf: str|None=None):
             'methodology':'Votos por candidatura e cargo, pleitos ordinários. Abstenção municipal com >= 10 mil eleitores aptos. Percentuais estaduais ponderados por eleitorado.'}
 
 @app.get('/api/adesivaria')
-def adesivaria(ano:int=0,uf:str|None=None,partido:str=Query('',max_length=35)):
-    """Campanhas publicitárias: agrupamentos conservadores por prefixo da categoria original."""
-    if ano and ano not in YEARS: raise HTTPException(400,'Ano não permitido')
-    uf=_uf(uf)
-    params=[ano,ano,uf,uf,partido,partido]
-    base=f'''WITH b AS (
-        SELECT CASE WHEN UPPER(TRIM(d.categoria)) LIKE 'SANTINH%' THEN 'Santinhos'
-                    WHEN UPPER(TRIM(d.categoria)) LIKE 'ADESIV%' THEN 'Adesivos'
-                    WHEN UPPER(TRIM(d.categoria)) LIKE 'BANDEIRA%' THEN 'Bandeiras' END tipo,
-               d.id_candidatura, d.categoria, d.valor,c.nome_urna,c.uf,pt.sigla partido,
-               c.numero_urna, c.gastos_campanha_total,r.votos,r.resultado,
-               e.ano,UPPER(e.cargo) cargo
-        FROM {DB}.main.Despesa_Candidatura d JOIN {DB}.main.Candidatura c USING(id_candidatura)
-        JOIN {DB}.main.Eleicao e USING(id_eleicao) LEFT JOIN {DB}.main.Partido pt USING(id_partido)
-        LEFT JOIN {DB}.main.Resultado_Candidatura r USING(id_candidatura)
-        WHERE (?=0 OR e.ano=?) AND (? IS NULL OR c.uf=?) AND (?='' OR UPPER(pt.sigla)=UPPER(?))
-    )'''
-    grupos=_rows(base+''' SELECT tipo, COUNT(*) registros,ROUND(SUM(valor),2) valor,COUNT(DISTINCT id_candidatura) candidaturas
-        FROM b WHERE tipo IS NOT NULL GROUP BY tipo ORDER BY valor DESC''',params)
-    categorias=_rows(base+''' SELECT tipo,categoria,COUNT(*) registros,ROUND(SUM(valor),2) valor
-        FROM b WHERE tipo IS NOT NULL GROUP BY tipo,categoria ORDER BY valor DESC LIMIT 18''',params)
-    candidatos=_rows(base+''' SELECT id_candidatura id,nome_urna nome,partido,uf,ano,cargo,
-        MAX(numero_urna) numero,MAX(gastos_campanha_total) gastos,MAX(votos) votos,MAX(resultado) resultado,
-        ROUND(SUM(valor),2) gastos_promo,COUNT(*) lancamentos
-        FROM b WHERE tipo IS NOT NULL GROUP BY 1,2,3,4,5,6 ORDER BY gastos_promo DESC LIMIT 12''',params)
-    return {'ano':ano,'uf':uf,'partido':partido,'groups':grupos,'categories':categorias,'candidates':candidatos,
-      'methodology':'Grupos por prefixo explícito na descrição da categoria (SANTINH-, ADESIV-, BANDEIRA-). Não representam todo o universo da propaganda, e a categorização exige revisão editorial.',
-      'document_type':'SINTESSE_DE_LANCAMENTOS'}
+def adesivaria(ano:int=2024,uf:str|None=None,partido:str=Query('',max_length=35),
+               cargo:str='VEREADOR',abrangencia:str='',municipio:str='',material:str='todos',
+               limit:int=12,offset:int=0,offset_votos:int=0,offset_categorias:int=0):
+    from adesivaria import summary
+    return summary(ano,uf or '',partido,cargo,abrangencia,municipio,material,limit,offset,offset_votos,offset_categorias)
+
+
+@app.get('/api/adesivaria/candidatura/{candidate_id}')
+def adesivaria_candidate(candidate_id:str,ano:int=2024,uf:str='',partido:str=Query('',max_length=35),
+                         cargo:str='VEREADOR',abrangencia:str='',municipio:str='',material:str='todos',
+                         limit:int=Query(10,ge=1,le=50),offset:int=Query(0,ge=0,le=1000000)):
+    from adesivaria import candidate
+    return candidate(candidate_id,ano,uf,partido,cargo,abrangencia,municipio,material,limit,offset)
+
 
 @app.exception_handler(RuntimeError)
 def runtime_error(_,exc:RuntimeError):

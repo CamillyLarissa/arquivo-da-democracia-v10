@@ -16,10 +16,10 @@ const PASTA=['pasta-yellow','pasta-red','pasta-blue','pasta-green','pasta-coral'
 const FACET_ICONS={ano:CalendarDays,partido:Flag,cargo:Landmark,uf:MapPin};
 const TITLES={ano:'Fichário cronológico',partido:'Fichário de partidos',cargo:'Fichário por cargo',uf:'Fichário territorial'};
 
-export default function ArchivePart({mode,onResearch,onOpenCandidate}){
+export default function ArchivePart({mode,onResearch,onOpenCandidate,initialCandidate=null}){
   const [facet,setFacet]=useState('ano'),[facetPage,setFacetPage]=useState(0);
-  const [year,setYear]=useState('2024'),[uf,setUf]=useState(''),[party,setParty]=useState(''),[cargo,setCargo]=useState(''),[resultado,setResultado]=useState('');
-  const [search,setSearch]=useState(''),[page,setPage]=useState(0),[order,setOrder]=useState('votos');
+  const [year,setYear]=useState(String(initialCandidate?.ano||2024)),[uf,setUf]=useState(initialCandidate?.uf||''),[party,setParty]=useState(initialCandidate?.partido||''),[cargo,setCargo]=useState(initialCandidate?.cargo||''),[resultado,setResultado]=useState('');
+  const [search,setSearch]=useState(initialCandidate?.nome||''),[page,setPage]=useState(0),[order,setOrder]=useState('votos');
   const [drawer,setDrawer]=useState('2024'),[focusIndex,setFocusIndex]=useState(-1),[phase,setPhase]=useState('pronta');
   const [rows,setRows]=useState([]),[total,setTotal]=useState(0),[loading,setLoading]=useState(false),[err,setErr]=useState('');
   const [chosen,setChosen]=useState(null),[flip,setFlip]=useState(false),[compare,setCompare]=useState([]);
@@ -113,7 +113,10 @@ export default function ArchivePart({mode,onResearch,onOpenCandidate}){
     if(loading||visible.length===0||search.trim().length<3)return;
     const signature=[search,year,uf,party,cargo,resultado,page,mode].join('|');
     if(lastAuto.current===signature)return;
-    const t=setTimeout(()=>{lastAuto.current=signature;locate(visible[0],0)},550);
+    const linked=initialCandidate&&search===initialCandidate.nome;
+    const target=linked?visible.find(c=>c.id===initialCandidate.id):visible[0];
+    if(!target)return;
+    const t=setTimeout(()=>{lastAuto.current=signature;locate(target,visible.indexOf(target))},550);
     return()=>clearTimeout(t);
   },[search,year,uf,party,cargo,resultado,page,mode,loading,visible,locate]);
   const addToDesk=c=>setCompare(old=>old.some(x=>x.id===c.id)?old:old.length>=3?old:[...old,c]);
